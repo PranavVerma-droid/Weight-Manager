@@ -1,0 +1,14 @@
+[Unit]
+Description=Weight Management App
+After=network.target
+
+[Service]
+Type=simple
+User=pranavverma
+WorkingDirectory=/var/www/weight-manager
+ExecStart=/usr/local/bin/http-server -p 5500
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
