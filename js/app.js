@@ -10,6 +10,7 @@ const weightForm = document.getElementById('weight-form');
 const dataTableBody = document.getElementById('data-table-body');
 const userInfoElement = document.getElementById('user-info');
 const logoutBtn = document.getElementById('logout-btn');
+const exportDataBtn = document.getElementById('export-data-btn');
 
 // Load data when page loads
 document.addEventListener('DOMContentLoaded', async () => {
@@ -38,6 +39,51 @@ if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
         pb.authStore.clear();
         window.location.href = 'login.html';
+    });
+}
+
+// Export data handler
+if (exportDataBtn) {
+    exportDataBtn.addEventListener('click', async () => {
+        try {
+            // Get all records
+            const records = await pb.collection('weight').getList(1, 1000, {
+                sort: 'logDate'
+            });
+            
+            if (records.items.length === 0) {
+                alert('No data to export');
+                return;
+            }
+            
+            // Convert to JSON
+            const dataStr = JSON.stringify(records.items, null, 2);
+            
+            // Create a download link
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            // Create a date string for the filename
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            
+            // Create and click a temporary download link
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `weight-data-export-${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error exporting data:', error);
+            alert('Error exporting data: ' + error.message);
+        }
     });
 }
 
