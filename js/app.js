@@ -1,5 +1,5 @@
 // Initialize PocketBase client
-const pb = new PocketBase("https://pb-2.pranavv.co.in");
+const pb = new PocketBase("https://pb-1.pranavv.co.in");
 
 // Initialize charts 
 let weightChart;
@@ -11,6 +11,8 @@ const dataTableBody = document.getElementById('data-table-body');
 const userInfoElement = document.getElementById('user-info');
 const logoutBtn = document.getElementById('logout-btn');
 const exportDataBtn = document.getElementById('export-data-btn');
+const importDataBtn = document.getElementById('import-data-btn');
+const importFileInput = document.getElementById('import-file-input');
 
 // Load data when page loads
 document.addEventListener('DOMContentLoaded', async () => {
@@ -83,6 +85,101 @@ if (exportDataBtn) {
         } catch (error) {
             console.error('Error exporting data:', error);
             alert('Error exporting data: ' + error.message);
+        }
+    });
+}
+
+// Import data handler
+if (importDataBtn && importFileInput) {
+    importDataBtn.addEventListener('click', () => {
+        importFileInput.click();
+    });
+    
+    importFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (!file.name.endsWith('.json')) {
+            alert('Please select a JSON file');
+            return;
+        }
+        
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            if (!Array.isArray(data)) {
+                alert('Invalid file format. Expected an array of records.');
+                return;
+            }
+            
+            if (data.length === 0) {
+                alert('No data found in the file');
+                return;
+            }
+            
+            // Confirm import
+            const confirmed = confirm(`Are you sure you want to import ${data.length} records? This will add new entries to your existing data.`);
+            if (!confirmed) return;
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            // Import each record
+            for (const record of data) {
+                try {
+                    // Extract only the fields we need, excluding PocketBase metadata
+                    const importData = {
+                        logDate: record.logDate,
+                        logWeight: record.logWeight || 0,
+                        logProtein: record.logProtein || 0,
+                        logCalories: record.logCalories || 0,
+                        logCarbs: record.logCarbs || 0,
+                        logFat: record.logFat || 0,
+                        logMiscInfo: record.logMiscInfo || ""
+                    };
+                    
+                    // Check if a record with this date already exists
+                    try {
+                        const existingRecords = await pb.collection('weight').getList(1, 1, {
+                            filter: `logDate = "${record.logDate}"`
+                        });
+                        
+                        if (existingRecords.items.length > 0) {
+                            // Update existing record
+                            await pb.collection('weight').update(existingRecords.items[0].id, importData);
+                        } else {
+                            // Create new record
+                            await pb.collection('weight').create(importData);
+                        }
+                        successCount++;
+                    } catch (recordError) {
+                        console.error('Error importing record:', recordError);
+                        errorCount++;
+                    }
+                } catch (recordError) {
+                    console.error('Error processing record:', recordError);
+                    errorCount++;
+                }
+            }
+            
+            // Show results
+            let message = `Import completed!\nSuccessfully imported: ${successCount} records`;
+            if (errorCount > 0) {
+                message += `\nFailed: ${errorCount} records`;
+            }
+            alert(message);
+            
+            // Reload data
+            await loadData();
+            
+            // Clear the file input
+            importFileInput.value = '';
+            
+        } catch (error) {
+            console.error('Error importing data:', error);
+            alert('Error importing data: ' + error.message);
+            importFileInput.value = '';
         }
     });
 }
