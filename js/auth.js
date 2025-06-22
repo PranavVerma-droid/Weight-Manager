@@ -1,5 +1,5 @@
 // Initialize PocketBase client
-const pb = new PocketBase("https://pb-1.pranavv.co.in");
+const pb = new PocketBase("https://pb-2.pranavv.co.in");
 
 // DOM elements
 const loginForm = document.getElementById('login-form');
