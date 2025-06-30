@@ -79,8 +79,8 @@ A web application for tracking weight, nutrition, and diet information using Poc
 1. **Clone this repository**
 
    ```bash
-   git clone https://github.com/yourusername/weight-manager.git
-   cd weight-manager
+   git clone https://github.com/PranavVerma-droid/Weight.git
+   cd Weight
    ```
 
 2. **Update the PocketBase URL**
