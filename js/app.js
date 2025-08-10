@@ -191,7 +191,7 @@ weightForm.addEventListener('submit', async (e) => {
     try {
         const formData = {
             logDate: document.getElementById('logDate').value,
-            logWeight: parseFloat(document.getElementById('logWeight').value) || 0,
+            logWeight: document.getElementById('logWeight').value ? parseFloat(document.getElementById('logWeight').value) : null,
             logProtein: parseFloat(document.getElementById('logProtein').value) || 0,
             logCalories: parseFloat(document.getElementById('logCalories').value) || 0,
             logCarbs: parseFloat(document.getElementById('logCarbs').value) || 0,
@@ -260,7 +260,7 @@ function displayTableData(items) {
         
         row.innerHTML = `
             <td>${formattedDate}</td>
-            <td>${item.logWeight}</td>
+            <td>${item.logWeight || '-'}</td>
             <td>${item.logProtein}</td>
             <td>${item.logCalories}</td>
             <td>${item.logCarbs}</td>
@@ -319,7 +319,7 @@ document.getElementById('saveEditBtn').addEventListener('click', async () => {
         
         const formData = {
             logDate: document.getElementById('editDate').value,
-            logWeight: parseFloat(document.getElementById('editWeight').value) || 0,
+            logWeight: document.getElementById('editWeight').value ? parseFloat(document.getElementById('editWeight').value) : null,
             logProtein: parseFloat(document.getElementById('editProtein').value) || 0,
             logCalories: parseFloat(document.getElementById('editCalories').value) || 0,
             logCarbs: parseFloat(document.getElementById('editCarbs').value) || 0,
@@ -361,17 +361,75 @@ async function deleteEntry(id) {
 function renderWeightChart(items) {
     const ctx = document.getElementById('weightChart').getContext('2d');
     
+    // Filter items that have weight data
+    const weightItems = items.filter(item => item.logWeight && item.logWeight > 0);
+    
+    if (weightItems.length === 0) {
+        // Destroy existing chart if it exists
+        if (weightChart) {
+            weightChart.destroy();
+        }
+        
+        // Show message when no weight data
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#666';
+        ctx.fillText('No weight data to display', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        return;
+    }
+    
     // Format data for chart
-    const dates = items.map(item => {
+    const dates = weightItems.map(item => {
         const date = new Date(item.logDate);
         return date.toLocaleDateString();
     });
     
-    const weights = items.map(item => item.logWeight);
+    const weights = weightItems.map(item => item.logWeight);
+    
+    // Calculate trend line (simple linear regression)
+    let trendLine = [];
+    if (weights.length >= 2) {
+        const n = weights.length;
+        const sumX = weights.reduce((sum, _, i) => sum + i, 0);
+        const sumY = weights.reduce((sum, weight) => sum + weight, 0);
+        const sumXY = weights.reduce((sum, weight, i) => sum + (i * weight), 0);
+        const sumXX = weights.reduce((sum, _, i) => sum + (i * i), 0);
+        
+        const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+        
+        trendLine = weights.map((_, i) => slope * i + intercept);
+    }
     
     // Destroy existing chart if it exists
     if (weightChart) {
         weightChart.destroy();
+    }
+    
+    // Create datasets
+    const datasets = [{
+        label: 'Weight (kg)',
+        data: weights,
+        backgroundColor: 'rgba(54, 162, 235, 0.3)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        showLine: false // Don't connect the dots
+    }];
+    
+    // Add trend line if we have enough data
+    if (trendLine.length >= 2) {
+        datasets.push({
+            label: 'Trend',
+            data: trendLine,
+            backgroundColor: 'rgba(255, 99, 132, 0)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            borderDash: [5, 5]
+        });
     }
     
     // Create new chart
@@ -379,14 +437,7 @@ function renderWeightChart(items) {
         type: 'line',
         data: {
             labels: dates,
-            datasets: [{
-                label: 'Weight (kg)',
-                data: weights,
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 2,
-                tension: 0.3
-            }]
+            datasets: datasets
         },
         options: {
             responsive: true,
@@ -394,6 +445,11 @@ function renderWeightChart(items) {
             scales: {
                 y: {
                     beginAtZero: false
+                }
+            },
+            elements: {
+                line: {
+                    tension: 0
                 }
             }
         }
