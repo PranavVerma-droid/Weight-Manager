@@ -1,6 +1,6 @@
 # Weight & Diet Management App
 
-A web application for tracking weight, nutrition, and diet information using PocketBase as the backend.
+A web application for tracking weight, nutrition, and workout data using SQLite database.
 
 ![Weight Management App](images/dashboard.png)
 
@@ -10,71 +10,21 @@ A web application for tracking weight, nutrition, and diet information using Poc
 - Log nutrition data (protein, carbs, fat, calories)
 - Add notes to each entry
 - Edit and delete existing entries
+- Import workout data from Hevy app CSV exports
+- View workout statistics and exercise details
+- JSON import/export for data backup
 - User authentication
+- Local SQLite database (no external dependencies)
 - Responsive design (works on mobile and desktop)
 
 ## Setup Guide
 
 ### Prerequisites
 
-- Node.js and npm
-- PocketBase instance (self-hosted or cloud)
-- Basic understanding of web servers
+- Node.js (v14 or higher)
+- npm (comes with Node.js)
 
-### 1. Setting Up PocketBase
-
-1. **Download and Install PocketBase**
-
-   Download PocketBase from [pocketbase.io](https://pocketbase.io/) or use their cloud service.
-
-2. **Start PocketBase**
-
-   ```bash
-   ./pocketbase serve
-   ```
-
-3. **Access the Admin UI**
-
-   Open `http://127.0.0.1:8090/_/` in your browser and create an admin account.
-
-4. **Create the Required Collections**
-
-   In the PocketBase Admin UI:
-
-   a. Create a `weight` collection with the following schema fields:
-   
-   | Field Name   | Type     | Required |
-   |--------------|----------|----------|
-   | logDate      | Date     | Yes      |
-   | logWeight    | Number   | Yes      |
-   | logProtein   | Number   | No       |
-   | logCalories  | Number   | No       |
-   | logCarbs     | Number   | No       |
-   | logFat       | Number   | No       |
-   | logMiscInfo  | Text     | No       |
-
-   b. Configure security rules for the `weight` collection:
-   
-   Go to the "Rules" tab for the weight collection and set:
-   
-   - Create Rule: `@request.auth.id != ''`
-   - Read Rule: `@request.auth.id != ''`
-   - Update Rule: `@request.auth.id != ''`
-   - Delete Rule: `@request.auth.id != ''`
-   
-   This ensures only authenticated users can access the data.
-
-   c. To restrict access to only one specific user with ID `your_user_id`, use:
-   
-   ```
-   @request.auth.id = "your_user_id"
-   ```
-
-5. **Create a User Account**
-
-   In the "Users" collection, create a user with an email and password for accessing your app.
-
-### 2. Configuring the Application
+### Quick Start
 
 1. **Clone this repository**
 
@@ -83,58 +33,106 @@ A web application for tracking weight, nutrition, and diet information using Poc
    cd Weight
    ```
 
-2. **Update the PocketBase URL**
-
-   Edit the [`app.js`](js/app.js) file to point to your PocketBase instance:
-
-   ```javascript
-   // Find this line (near the top of the file)
-   const pb = new PocketBase("https://pb-2.pranavv.co.in");
-   
-   // Replace with your PocketBase URL
-   const pb = new PocketBase("http://your-pocketbase-url.com");
-   // or for local development
-   // const pb = new PocketBase("http://127.0.0.1:8090");
-   ```
-
-3. **Customize the App (Optional)**
-
-   - Change the app title in `index.html`
-   - Update styling in the CSS section
-   - Modify any features to suit your needs
-
-### 3. Serving the Application
-
-#### Option 1: Using a Simple HTTP Server (Development)
-
-```bash
-# Install http-server globally
-npm install -g http-server
-
-# Start the server
-http-server -p 5500
-```
-
-The app will be available at `http://localhost:5500`
-
-#### Option 2: Using SystemD (Production)
-
-1. **Install http-server globally**
-
-   The service requires the `http-server` package to be installed globally:
+2. **Run the startup script**
 
    ```bash
-   # Install http-server globally using npm
-   sudo npm install -g http-server
-   
-   # Verify the installation and check its path
-   which http-server
-   # This should show /usr/local/bin/http-server
+   chmod +x start.sh
+   ./start.sh
+   ```
+
+   Or manually:
+
+   ```bash
+   npm install
+   npm start
+   ```
+
+3. **Access the application**
+
+   Open `http://localhost:3000` in your browser
+
+4. **Login**
+
+   Default credentials:
+   - Email: `admin@example.com`
+   - Password: `admin123`
+
+### Manual Setup
+
+1. **Install Dependencies**
+
+   ```bash
+   npm install
+   ```
+
+2. **Start the Server**
+
+   ```bash
+   npm start
+   ```
+
+   For development with auto-restart:
+   ```bash
+   npm run dev
+   ```
+
+3. **Database Location**
+
+   The SQLite database will be automatically created at `data/weight_manager.db`
+
+### Database Schema
+
+The application automatically creates the following tables:
+
+#### Users Table
+| Field      | Type     | Description |
+|------------|----------|-------------|
+| id         | INTEGER  | Primary key |
+| email      | TEXT     | User email (unique) |
+| password   | TEXT     | Hashed password |
+| created_at | DATETIME | Account creation date |
+
+#### Weight Logs Table
+| Field        | Type     | Description |
+|--------------|----------|-------------|
+| id           | INTEGER  | Primary key |
+| user_id      | INTEGER  | Foreign key to users |
+| log_date     | TEXT     | Date of entry |
+| log_weight   | REAL     | Weight in kg |
+| log_protein  | REAL     | Protein in grams |
+| log_calories | REAL     | Calories |
+| log_carbs    | REAL     | Carbohydrates in grams |
+| log_fat      | REAL     | Fat in grams |
+| log_misc_info| TEXT     | Additional notes |
+| created_at   | DATETIME | Entry creation date |
+
+#### Workouts Table
+| Field            | Type     | Description |
+|------------------|----------|-------------|
+| id               | INTEGER  | Primary key |
+| user_id          | INTEGER  | Foreign key to users |
+| title            | TEXT     | Workout name |
+| workout_date     | TEXT     | Date of workout |
+| start_time       | TEXT     | Start time (HH:MM:SS) |
+| duration_minutes | INTEGER  | Duration in minutes |
+| exercises        | TEXT     | JSON string of exercise data |
+| total_exercises  | INTEGER  | Number of exercises |
+| total_sets       | INTEGER  | Total number of sets |
+| created_at       | DATETIME | Entry creation date |
+
+## Production Deployment
+
+### Using SystemD Service
+
+1. **Install dependencies**
+
+   ```bash
+   npm install
    ```
 
 2. **Configure the service file**
 
-   The repository already includes a `weight-manager.service` file. Edit it to update the user and paths if needed:
+   The repository includes a `weight-manager.service` file. Edit it if needed to update the user and paths:
 
    ```bash
    # Open the service file to edit
@@ -145,12 +143,10 @@ The app will be available at `http://localhost:5500`
    ```
    User=your_username
    WorkingDirectory=/path/to/weight-manager
-   ExecStart=/usr/local/bin/http-server -p 5500
+   ExecStart=/usr/bin/node server.js
    ```
-   
-   Note: If `which http-server` showed a different path, update the ExecStart line accordingly.
 
-3. **Create a symlink to the systemd directory**
+3. **Deploy the service**
 
    ```bash
    # Create a symlink to the systemd directory
@@ -164,41 +160,127 @@ The app will be available at `http://localhost:5500`
    sudo systemctl start weight-manager
    ```
 
-3. **Check the service status**
+4. **Check the service status**
 
    ```bash
    sudo systemctl status weight-manager
    ```
 
-The app should now be running on port 5500 and will automatically start on system boot.
+The app will now be running on port 3000 and will automatically start on system boot.
 
-#### Option 3: Using Nginx or Apache (Production)
+### Using Nginx as Reverse Proxy (Recommended)
 
-For production environments, it's recommended to serve the app through Nginx or Apache.
-
-**Nginx Example Configuration:**
+For production, use Nginx as a reverse proxy:
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com;
 
-    root /var/www/weight-manager;
-    index index.html;
-
     location / {
-        try_files $uri $uri/ /index.html;
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
 }
 ```
 
-## Using the Application
+## API Endpoints
 
-1. Navigate to the app URL
-2. Log in using your PocketBase user credentials
-3. Use the form on the left to add new weight and nutrition entries
-4. View your progress in the charts
-5. Manage entries through the data table at the bottom
+The application provides a REST API:
+
+### Authentication
+- `POST /api/auth/login` - Login with email/password
+
+### Weight Logs
+- `GET /api/weight` - Get all weight entries
+- `POST /api/weight` - Create new weight entry
+- `PUT /api/weight/:id` - Update weight entry
+- `DELETE /api/weight/:id` - Delete weight entry
+
+### Workouts
+- `GET /api/workouts` - Get all workouts
+- `POST /api/workouts` - Create new workout
+- `GET /api/workouts/:id` - Get specific workout
+- `DELETE /api/workouts/:id` - Delete workout
+
+### Data Management
+- `GET /api/export` - Export all data as JSON
+- `POST /api/import` - Import data from JSON
+
+## File Structure
+
+```
+/
+├── server.js              # Main server file
+├── package.json           # Dependencies
+├── start.sh              # Startup script
+├── data/                 # SQLite database directory
+│   └── weight_manager.db # SQLite database file
+├── js/
+│   ├── app.js           # Main frontend application
+│   └── auth.js          # Authentication handling
+├── index.html           # Main application page
+├── login.html           # Login page
+└── README.md           # This file
+```
+
+## Troubleshooting
+
+- **Port already in use**: Change the PORT in server.js or set PORT environment variable
+- **Database issues**: Delete `data/weight_manager.db` to reset the database
+- **Login issues**: Use the default credentials: admin@example.com / admin123
+- **CSV Import errors**: Ensure the CSV file is from Hevy app export
+- **Service not starting**: Check if Node.js is installed and dependencies are installed
+
+## Development
+
+To contribute or modify the application:
+
+1. **Start in development mode**
+   ```bash
+   npm run dev
+   ```
+
+2. **Database changes**
+   
+   Modify the table creation in `server.js` around line 30-60
+
+3. **Frontend changes**
+   
+   Edit `js/app.js` for functionality or `index.html` for UI
+
+4. **API changes**
+   
+   Modify routes in `server.js`
+
+## Backup and Migration
+
+### Backup Data
+```bash
+# Export via API
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/export > backup.json
+
+# Or use the export button in the web interface
+```
+
+### Restore Data
+```bash
+# Import via API
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_TOKEN" \
+  -d @backup.json http://localhost:3000/api/import
+
+# Or use the import button in the web interface
+```
+
+### Database Migration
+Simply copy the `data/weight_manager.db` file to backup or move the database.
 
 ## Troubleshooting
 

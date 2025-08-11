@@ -97,6 +97,49 @@
             </div>
         </div>
         
+        <!-- Workout Section -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3>Workout Data</h3>
+                <div class="data-form">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <button id="import-workout-btn" class="btn btn-success">Import Hevy CSV</button>
+                        <input type="file" id="workout-file-input" accept=".csv" style="display: none;">
+                        <button id="delete-selected-workouts" class="btn btn-danger" disabled>Delete Selected</button>
+                        <span class="text-muted">Upload your Hevy export CSV file</span>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <h5>Recent Workouts</h5>
+                        <div class="chart-container">
+                            <canvas id="workoutChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-3">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <input type="checkbox" id="select-all-workouts" title="Select All">
+                                    </th>
+                                    <th>Date</th>
+                                    <th>Workout Title</th>
+                                    <th>Duration</th>
+                                    <th>Exercises</th>
+                                    <th>Total Sets</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="workout-table-body">
+                                <!-- Workout data will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row data-table">
             <h3>Data Log</h3>
             <div class="table-responsive">

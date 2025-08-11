@@ -1,16 +1,18 @@
-// Initialize PocketBase client
-const pb = new PocketBase("https://pb-2.pranavv.co.in");
+// API configuration
+const API_BASE = '/api';
 
 // DOM elements
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
-const googleLoginBtn = document.getElementById('google-login-btn');
 
 // Check if user is already logged in
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // If we have a valid token in local storage, redirect to the app
-        if (pb.authStore.isValid) {
+        const token = localStorage.getItem('authToken');
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        
+        // If we have a valid token, redirect to the app
+        if (token && user) {
             window.location.href = 'index.html';
         }
     } catch (error) {
@@ -27,8 +29,23 @@ loginForm.addEventListener('submit', async (e) => {
     const password = document.getElementById('loginPassword').value;
     
     try {
-        // Authenticate user
-        await pb.collection('users').authWithPassword(email, password);
+        const response = await fetch(API_BASE + '/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Invalid credentials');
+        }
+        
+        const data = await response.json();
+        
+        // Store auth data
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
         
         // Redirect to main app if login successful
         window.location.href = 'index.html';
@@ -38,23 +55,3 @@ loginForm.addEventListener('submit', async (e) => {
         loginError.style.display = 'block';
     }
 });
-
-// Handle Google OAuth login
-googleLoginBtn.addEventListener('click', async () => {
-    try {
-        // Clear any existing error messages
-        loginError.style.display = 'none';
-        
-        // Start OAuth flow with Google
-        const authData = await pb.collection('users').authWithOAuth2('google');
-        
-        // Redirect to main app if login successful
-        window.location.href = 'index.html';
-    } catch (error) {
-        console.error('Google login error:', error);
-        loginError.textContent = 'Google login failed. Please try again.';
-        loginError.style.display = 'block';
-    }
-});
-
-// Signup functionality removed
