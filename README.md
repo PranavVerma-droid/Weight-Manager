@@ -1,6 +1,36 @@
 # Weight & Diet Management App
 
-A web application for tracking weight, nutrition, and workout data using SQLite database.
+A web application for tracking weig3. **Start the Server**
+
+   ```bash
+   npm start
+   ```
+
+   For development with auto-restart:
+   ```bash
+   npm run dev
+   ```
+
+4. **Configure Admin Credentials (Optional)**
+
+   You can set custom admin credentials using environment variables:
+
+   ```bash
+   # Set custom admin email and password
+   export ADMIN_EMAIL="your-admin@example.com"
+   export ADMIN_PASSWORD="your-secure-password"
+   npm start
+   ```
+
+   Or create a `.env` file:
+   ```
+   ADMIN_EMAIL=your-admin@example.com
+   ADMIN_PASSWORD=your-secure-password
+   JWT_SECRET=your-custom-jwt-secret
+   PORT=3000
+   ```
+
+5. **Database Location**n, and workout data using SQLite database.
 
 ![Weight Management App](images/dashboard.png)
 

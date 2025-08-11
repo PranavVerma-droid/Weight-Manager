@@ -10,6 +10,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 
+// Default admin credentials (can be changed via settings)
+const DEFAULT_ADMIN = {
+    email: process.env.ADMIN_EMAIL || 'admin@example.com',
+    password: process.env.ADMIN_PASSWORD || 'admin123'
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -66,9 +72,9 @@ db.serialize(() => {
     )`);
 
     // Create default admin user (password: admin123)
-    const defaultPassword = bcrypt.hashSync('admin123', 10);
+    const defaultPassword = bcrypt.hashSync(DEFAULT_ADMIN.password, 10);
     db.run(`INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)`, 
-        ['admin@example.com', defaultPassword]);
+        [DEFAULT_ADMIN.email, defaultPassword]);
 });
 
 // Auth middleware
@@ -237,6 +243,91 @@ app.post('/api/workouts/delete-multiple', authenticateToken, (req, res) => {
             return res.status(500).json({ error: 'Database error' });
         }
         res.json({ success: true, deletedCount: this.changes });
+    });
+});
+
+// Change admin password
+app.post('/api/settings/change-password', authenticateToken, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+    
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+    
+    db.get('SELECT * FROM users WHERE id = ?', [req.user.id], async (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (!user || !await bcrypt.compare(currentPassword, user.password)) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+        
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        
+        db.run('UPDATE users SET password = ? WHERE id = ?', 
+            [hashedNewPassword, req.user.id], function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to update password' });
+            }
+            res.json({ success: true, message: 'Password updated successfully' });
+        });
+    });
+});
+
+// Change admin email
+app.post('/api/settings/change-email', authenticateToken, async (req, res) => {
+    const { newEmail, currentPassword } = req.body;
+    
+    if (!newEmail || !currentPassword) {
+        return res.status(400).json({ error: 'New email and current password are required' });
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+    }
+    
+    db.get('SELECT * FROM users WHERE id = ?', [req.user.id], async (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (!user || !await bcrypt.compare(currentPassword, user.password)) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+        
+        // Check if email already exists (for other users)
+        db.get('SELECT id FROM users WHERE email = ? AND id != ?', [newEmail, req.user.id], (err, existingUser) => {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+            
+            if (existingUser) {
+                return res.status(400).json({ error: 'Email already exists' });
+            }
+            
+            db.run('UPDATE users SET email = ? WHERE id = ?', 
+                [newEmail, req.user.id], function(err) {
+                if (err) {
+                    return res.status(500).json({ error: 'Failed to update email' });
+                }
+                
+                // Generate new token with updated email
+                const newToken = jwt.sign({ id: req.user.id, email: newEmail }, JWT_SECRET);
+                res.json({ 
+                    success: true, 
+                    message: 'Email updated successfully',
+                    token: newToken,
+                    user: { id: req.user.id, email: newEmail }
+                });
+            });
+        });
     });
 });
 

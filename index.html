@@ -44,6 +44,7 @@
                 <button id="export-data-btn" class="btn btn-outline-primary me-2">Export Data</button>
                 <button id="import-data-btn" class="btn btn-outline-success me-2">Import Data</button>
                 <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                <button id="settings-btn" class="btn btn-outline-secondary me-2">Settings</button>
                 <button id="logout-btn" class="btn btn-outline-danger">Logout</button>
             </div>
         </div>
@@ -160,6 +161,67 @@
                         <!-- Data will be inserted here dynamically -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="settingsModalLabel">Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-4">
+                        <h6>Change Email</h6>
+                        <form id="change-email-form">
+                            <div class="mb-3">
+                                <label for="newEmail" class="form-label">New Email</label>
+                                <input type="email" class="form-control" id="newEmail" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="emailCurrentPassword" class="form-label">Current Password</label>
+                                <input type="password" class="form-control" id="emailCurrentPassword" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Change Email</button>
+                        </form>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="mb-4">
+                        <h6>Change Password</h6>
+                        <form id="change-password-form">
+                            <div class="mb-3">
+                                <label for="currentPassword" class="form-label">Current Password</label>
+                                <input type="password" class="form-control" id="currentPassword" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="newPassword" class="form-label">New Password</label>
+                                <input type="password" class="form-control" id="newPassword" required minlength="6">
+                            </div>
+                            <div class="mb-3">
+                                <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                <input type="password" class="form-control" id="confirmPassword" required minlength="6">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Change Password</button>
+                        </form>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <h6>Application Info</h6>
+                        <p><strong>Database Location:</strong> data/weight_manager.db</p>
+                        <p><strong>Server Port:</strong> 3000</p>
+                        <p><strong>Current User:</strong> <span id="settings-user-email"></span></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>

@@ -21,6 +21,10 @@ const workoutFileInput = document.getElementById('workout-file-input');
 const workoutTableBody = document.getElementById('workout-table-body');
 const deleteSelectedWorkoutsBtn = document.getElementById('delete-selected-workouts');
 const selectAllWorkoutsCheckbox = document.getElementById('select-all-workouts');
+const settingsBtn = document.getElementById('settings-btn');
+const changePasswordForm = document.getElementById('change-password-form');
+const changeEmailForm = document.getElementById('change-email-form');
+const settingsUserEmail = document.getElementById('settings-user-email');
 
 // API helper function
 async function apiCall(endpoint, options = {}) {
@@ -60,6 +64,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Display user info
     if (userInfoElement) {
         userInfoElement.textContent = currentUser.email;
+    }
+    
+    // Set user email in settings modal
+    if (settingsUserEmail) {
+        settingsUserEmail.textContent = currentUser.email;
     }
     
     // Set default date to current date (no time)
@@ -629,6 +638,115 @@ function updateDeleteButtonState() {
     if (deleteSelectedWorkoutsBtn) {
         deleteSelectedWorkoutsBtn.disabled = selectedCheckboxes.length === 0;
     }
+}
+
+// Settings functionality
+if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+        const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));
+        settingsModal.show();
+    });
+}
+
+// Change password form
+if (changePasswordForm) {
+    changePasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (newPassword !== confirmPassword) {
+            alert('New passwords do not match');
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+            alert('New password must be at least 6 characters long');
+            return;
+        }
+        
+        try {
+            await apiCall('/settings/change-password', {
+                method: 'POST',
+                body: JSON.stringify({
+                    currentPassword,
+                    newPassword
+                })
+            });
+            
+            alert('Password changed successfully!');
+            changePasswordForm.reset();
+            
+            // Hide the modal
+            const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+            settingsModal.hide();
+            
+        } catch (error) {
+            console.error('Error changing password:', error);
+            alert('Error changing password: ' + error.message);
+        }
+    });
+}
+
+// Change email form
+if (changeEmailForm) {
+    changeEmailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const newEmail = document.getElementById('newEmail').value;
+        const currentPassword = document.getElementById('emailCurrentPassword').value;
+        
+        if (!newEmail || !currentPassword) {
+            alert('Please fill in all fields');
+            return;
+        }
+        
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newEmail)) {
+            alert('Please enter a valid email address');
+            return;
+        }
+        
+        try {
+            const response = await apiCall('/settings/change-email', {
+                method: 'POST',
+                body: JSON.stringify({
+                    newEmail,
+                    currentPassword
+                })
+            });
+            
+            // Update stored user data
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('currentUser', JSON.stringify(response.user));
+            
+            // Update global variables
+            authToken = response.token;
+            currentUser = response.user;
+            
+            // Update UI
+            if (userInfoElement) {
+                userInfoElement.textContent = response.user.email;
+            }
+            if (settingsUserEmail) {
+                settingsUserEmail.textContent = response.user.email;
+            }
+            
+            alert('Email changed successfully!');
+            changeEmailForm.reset();
+            
+            // Hide the modal
+            const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+            settingsModal.hide();
+            
+        } catch (error) {
+            console.error('Error changing email:', error);
+            alert('Error changing email: ' + error.message);
+        }
+    });
 }
 
 // Process Hevy CSV data
