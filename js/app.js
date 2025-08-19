@@ -1338,6 +1338,73 @@ function initMobileWorkoutControls() {
 
 // Update stats for nutrition section
 function updateStats() {
-    // This function can be called to update nutrition stats
-    // Implementation depends on your specific requirements
+    // Get all weight log data
+    apiCall('/weight')
+        .then(data => {
+            if (!data || data.length === 0) {
+                // No data available
+                return;
+            }
+
+            // Sort data by date
+            const sortedData = data.sort((a, b) => new Date(a.log_date) - new Date(b.log_date));
+            
+            // Current Weight
+            const latestEntry = sortedData[sortedData.length - 1];
+            const currentWeight = latestEntry.log_weight || 0;
+            document.getElementById('current-weight').textContent = currentWeight ? `${currentWeight} kg` : '--';
+
+            // Weight Change (compared to first entry)
+            if (sortedData.length >= 2) {
+                const firstEntry = sortedData[0];
+                const firstWeight = firstEntry.log_weight || 0;
+                const weightChange = currentWeight - firstWeight;
+                const changeElement = document.getElementById('weight-change');
+                
+                if (weightChange > 0) {
+                    changeElement.textContent = `+${weightChange.toFixed(1)} kg`;
+                    changeElement.style.color = 'var(--danger-color)';
+                } else if (weightChange < 0) {
+                    changeElement.textContent = `${weightChange.toFixed(1)} kg`;
+                    changeElement.style.color = 'var(--success-color)';
+                } else {
+                    changeElement.textContent = '0 kg';
+                    changeElement.style.color = 'var(--text-muted)';
+                }
+            } else {
+                document.getElementById('weight-change').textContent = '--';
+            }
+
+            // Average Daily Calories (last 30 days)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            const recentEntries = sortedData.filter(entry => 
+                new Date(entry.log_date) >= thirtyDaysAgo && entry.log_calories > 0
+            );
+            
+            if (recentEntries.length > 0) {
+                const totalCalories = recentEntries.reduce((sum, entry) => sum + (entry.log_calories || 0), 0);
+                const avgCalories = Math.round(totalCalories / recentEntries.length);
+                document.getElementById('avg-calories').textContent = avgCalories;
+            } else {
+                document.getElementById('avg-calories').textContent = '--';
+            }
+
+            // Average Daily Protein (last 30 days)
+            const recentProteinEntries = sortedData.filter(entry => 
+                new Date(entry.log_date) >= thirtyDaysAgo && entry.log_protein > 0
+            );
+            
+            if (recentProteinEntries.length > 0) {
+                const totalProtein = recentProteinEntries.reduce((sum, entry) => sum + (entry.log_protein || 0), 0);
+                const avgProtein = Math.round(totalProtein / recentProteinEntries.length);
+                document.getElementById('avg-protein').textContent = `${avgProtein}g`;
+            } else {
+                document.getElementById('avg-protein').textContent = '--';
+            }
+        })
+        .catch(error => {
+            console.error('Error updating stats:', error);
+        });
 }

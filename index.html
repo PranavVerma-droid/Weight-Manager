@@ -13,30 +13,54 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
+            /* Dark Mode Color Palette */
             --primary-color: #6366f1;
-            --secondary-color: #f1f5f9;
+            --primary-hover: #5855eb;
+            --secondary-color: #374151;
             --success-color: #10b981;
             --danger-color: #ef4444;
             --warning-color: #f59e0b;
-            --dark-color: #1f2937;
-            --light-color: #ffffff;
+            --info-color: #3b82f6;
+            
+            /* Background Colors */
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --bg-tertiary: #374151;
+            --bg-card: #1f2937;
+            --bg-elevated: #374151;
+            
+            /* Text Colors */
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --text-muted: #9ca3af;
+            --text-inverse: #111827;
+            
+            /* Border Colors */
+            --border-primary: #374151;
+            --border-secondary: #4b5563;
+            --border-accent: #6b7280;
+            
+            /* Other */
             --border-radius: 12px;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
         }
 
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--bg-primary);
             min-height: 100vh;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             padding: 0;
             margin: 0;
+            color: var(--text-primary);
         }
 
         .main-container {
-            background: rgba(255, 255, 255, 0.95);
+            background: var(--bg-secondary);
             backdrop-filter: blur(10px);
             border-radius: var(--border-radius);
+            border: 1px solid var(--border-primary);
             box-shadow: var(--shadow-lg);
             margin: 20px;
             padding: 30px;
@@ -95,6 +119,8 @@
             box-shadow: var(--shadow);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             margin-bottom: 24px;
+            background: var(--bg-card);
+            color: var(--text-primary);
         }
 
         .card:hover {
@@ -103,29 +129,33 @@
         }
 
         .card-header {
-            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
-            border-bottom: 1px solid #e2e8f0;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-primary);
             font-weight: 600;
-            color: var(--dark-color);
+            color: var(--text-primary);
             border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
         }
 
         .form-control {
             border-radius: 8px;
-            border: 2px solid #e2e8f0;
+            border: 2px solid var(--border-primary);
             padding: 12px 16px;
             transition: all 0.2s ease;
+            background: var(--bg-elevated);
+            color: var(--text-primary);
         }
 
         .form-control:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background: var(--bg-elevated);
+            color: var(--text-primary);
         }
 
         .chart-container {
             height: 350px;
             padding: 20px;
-            background: white;
+            background: var(--bg-elevated);
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             margin-bottom: 24px;
@@ -139,12 +169,13 @@
         }
 
         .stat-card {
-            background: white;
+            background: var(--bg-card);
             padding: 24px;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             text-align: center;
             transition: all 0.2s ease;
+            border: 1px solid var(--border-primary);
         }
 
         .stat-card:hover {
@@ -161,34 +192,47 @@
 
         .stat-label {
             font-size: 0.875rem;
-            color: #6b7280;
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
         .table {
-            background: white;
+            background: var(--bg-card) !important;
             border-radius: var(--border-radius);
             overflow: hidden;
             box-shadow: var(--shadow);
+            color: var(--text-primary) !important;
+            border: 1px solid var(--border-primary);
         }
 
         .table thead th {
-            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            background: var(--bg-elevated) !important;
             border: none;
             font-weight: 600;
-            color: var(--dark-color);
+            color: var(--text-primary) !important;
             padding: 16px;
+            border-bottom: 1px solid var(--border-primary) !important;
         }
 
         .table tbody td {
             padding: 16px;
-            border-color: #f1f5f9;
+            border-color: var(--border-primary) !important;
             vertical-align: middle;
+            color: var(--text-primary) !important;
+            background: var(--bg-card) !important;
+        }
+
+        .table tbody tr {
+            background: var(--bg-card) !important;
         }
 
         .table tbody tr:hover {
-            background-color: #f8fafc;
+            background-color: var(--bg-elevated) !important;
+        }
+
+        .table tbody tr:hover td {
+            background-color: var(--bg-elevated) !important;
         }
 
         .section-divider {
@@ -202,11 +246,13 @@
             border: none;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow-lg);
+            background: var(--bg-card);
+            color: var(--text-primary);
         }
 
         .modal-header {
-            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
-            border-bottom: 1px solid #e2e8f0;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-primary);
             border-radius: var(--border-radius) var(--border-radius) 0 0;
         }
 
@@ -298,6 +344,85 @@
             align-items: center;
         }
 
+        /* Nav tabs dark theme */
+        .nav-tabs {
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .nav-tabs .nav-link {
+            border: none;
+            color: var(--text-muted);
+            padding: 12px 24px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            background: transparent;
+        }
+
+        .nav-tabs .nav-link:hover {
+            border: none;
+            color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .nav-tabs .nav-link.active {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        /* Form labels dark theme */
+        .form-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Modal dark theme */
+        .modal-header .btn-close {
+            filter: invert(1);
+        }
+
+        .modal-title {
+            color: var(--text-primary);
+        }
+
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        /* Button outline variants for dark theme */
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-outline-danger {
+            color: var(--danger-color);
+            border-color: var(--danger-color);
+        }
+
+        .btn-outline-danger:hover {
+            background-color: var(--danger-color);
+            border-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-outline-light {
+            color: rgba(255, 255, 255, 0.8);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-outline-light:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: white;
+        }
+
         /* Mobile Responsiveness */
         @media (max-width: 768px) {
             .main-container {
@@ -363,11 +488,11 @@
 
             .workout-card {
                 display: block;
-                border: 1px solid #e2e8f0;
+                border: 1px solid var(--border-primary);
                 border-radius: var(--border-radius);
                 padding: 16px;
                 margin-bottom: 16px;
-                background: white;
+                background: var(--bg-card);
                 box-shadow: var(--shadow);
                 transition: all 0.2s ease;
                 position: relative;
@@ -386,7 +511,7 @@
 
             .workout-card.selected {
                 border-color: var(--primary-color) !important;
-                background: rgba(99, 102, 241, 0.05) !important;
+                background: rgba(99, 102, 241, 0.1) !important;
                 transform: translateY(-1px);
                 box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15) !important;
             }
@@ -408,7 +533,7 @@
                 align-items: center;
                 margin-bottom: 12px;
                 padding-bottom: 12px;
-                border-bottom: 1px solid #f1f5f9;
+                border-bottom: 1px solid var(--border-primary);
             }
 
             .workout-date {
@@ -419,7 +544,7 @@
 
             .workout-title {
                 font-weight: 600;
-                color: var(--dark-color);
+                color: var(--text-primary);
                 margin-bottom: 8px;
             }
 
@@ -433,7 +558,7 @@
             
             .workout-description small {
                 font-style: italic;
-                color: #495057;
+                color: var(--text-muted);
             }
 
             .workout-details {
@@ -446,7 +571,7 @@
             .workout-detail {
                 text-align: center;
                 padding: 8px;
-                background: #f8fafc;
+                background: var(--bg-elevated);
                 border-radius: 8px;
             }
 
@@ -458,7 +583,7 @@
 
             .workout-detail-label {
                 font-size: 0.75rem;
-                color: #6b7280;
+                color: var(--text-muted);
                 text-transform: uppercase;
                 letter-spacing: 0.05em;
             }
@@ -469,7 +594,7 @@
                 align-items: center;
                 margin-top: 12px;
                 padding-top: 12px;
-                border-top: 1px solid #f1f5f9;
+                border-top: 1px solid var(--border-primary);
             }
 
             .workout-checkbox {
