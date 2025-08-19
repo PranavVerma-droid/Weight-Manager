@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.location.href = 'index.html';
         }
     } catch (error) {
-        console.error('Auth check error:', error);
+        // Auth check failed - user will see login form
     }
 });
 
@@ -50,7 +50,6 @@ loginForm.addEventListener('submit', async (e) => {
         // Redirect to main app if login successful
         window.location.href = 'index.html';
     } catch (error) {
-        console.error('Login error:', error);
         loginError.textContent = 'Invalid email or password';
         loginError.style.display = 'block';
     }

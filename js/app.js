@@ -937,6 +937,23 @@ function displayWorkoutTable(items) {
         const formattedDate = date.toLocaleDateString();
         const duration = `${item.duration_minutes} min`;
         
+        // Calculate total volume
+        let totalVolume = 0;
+        try {
+            const exercises = JSON.parse(item.exercises);
+            exercises.forEach(exercise => {
+                if (exercise.sets && Array.isArray(exercise.sets)) {
+                    exercise.sets.forEach(set => {
+                        const weight = parseFloat(set.weight_kg) || 0;
+                        const reps = parseInt(set.reps) || 0;
+                        totalVolume += weight * reps;
+                    });
+                }
+            });
+        } catch (error) {
+            // If parsing fails, volume remains 0
+        }
+        
         // Create workout title with description if available
         let titleDisplay = item.title;
         if (item.description && item.description.trim()) {
@@ -952,6 +969,7 @@ function displayWorkoutTable(items) {
             <td>${duration}</td>
             <td>${item.total_exercises}</td>
             <td>${item.total_sets}</td>
+            <td>${totalVolume > 0 ? `${totalVolume.toFixed(1)} kg` : 'N/A'}</td>
             <td>
                 <button class="btn btn-sm btn-info" onclick="viewWorkoutDetails('${item.id}')">View Details</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteWorkout('${item.id}')">Delete</button>
@@ -977,15 +995,26 @@ function displayWorkoutTable(items) {
 async function viewWorkoutDetails(id) {
     try {
         const workout = await apiCall(`/workouts/${id}`);
-        console.log('Workout data received:', workout); // Debug log
         const exercises = JSON.parse(workout.exercises);
+        
+        // Calculate total workout volume
+        let totalWorkoutVolume = 0;
+        exercises.forEach(exercise => {
+            if (exercise.sets && exercise.sets.length > 0) {
+                exercise.sets.forEach(set => {
+                    const weight = parseFloat(set.weight_kg) || 0;
+                    const reps = parseInt(set.reps) || 0;
+                    totalWorkoutVolume += weight * reps;
+                });
+            }
+        });
         
         let detailsHTML = `<h4>${workout.title}</h4>`;
         detailsHTML += `<p><strong>Date:</strong> ${new Date(workout.workout_date).toLocaleDateString()}</p>`;
         detailsHTML += `<p><strong>Duration:</strong> ${workout.duration_minutes} minutes</p>`;
+        detailsHTML += `<p><strong>Total Volume:</strong> ${totalWorkoutVolume > 0 ? `${totalWorkoutVolume.toFixed(1)} kg` : 'N/A'}</p>`;
         
         // Add workout description if it exists
-        console.log('Workout description:', workout.description); // Debug log
         if (workout.description && workout.description.trim()) {
             detailsHTML += `<div class="alert alert-info" style="margin: 15px 0;">`;
             detailsHTML += `<h6><i class="fas fa-info-circle me-2"></i>Workout Notes:</h6>`;
@@ -996,18 +1025,37 @@ async function viewWorkoutDetails(id) {
         detailsHTML += `<h5>Exercises:</h5>`;
         
         exercises.forEach(exercise => {
+            // Calculate total volume for this exercise
+            let exerciseVolume = 0;
+            if (exercise.sets && exercise.sets.length > 0) {
+                exercise.sets.forEach(set => {
+                    const weight = parseFloat(set.weight_kg) || 0;
+                    const reps = parseInt(set.reps) || 0;
+                    exerciseVolume += weight * reps;
+                });
+            }
+            
             detailsHTML += `<div class="exercise-section" style="margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px;">`;
-            detailsHTML += `<h6 style="color: #6366f1; margin-bottom: 10px;">${exercise.title}</h6>`;
+            detailsHTML += `<h6 style="color: #6366f1; margin-bottom: 10px;">${exercise.title}`;
+            if (exerciseVolume > 0) {
+                detailsHTML += ` <span style="font-size: 0.8em; color: #666;">(Total Volume: ${exerciseVolume.toFixed(1)} kg)</span>`;
+            }
+            detailsHTML += `</h6>`;
             
             if (exercise.sets && exercise.sets.length > 0) {
                 detailsHTML += `<table class="table table-sm table-striped">`;
-                detailsHTML += `<thead><tr><th>Set</th><th>Weight (kg)</th><th>Reps</th><th>Duration (s)</th><th>Notes</th></tr></thead><tbody>`;
+                detailsHTML += `<thead><tr><th>Set</th><th>Weight (kg)</th><th>Reps</th><th>Volume (kg)</th><th>Duration (s)</th><th>Notes</th></tr></thead><tbody>`;
                 
                 exercise.sets.forEach((set, index) => {
+                    const weight = parseFloat(set.weight_kg) || 0;
+                    const reps = parseInt(set.reps) || 0;
+                    const setVolume = weight * reps;
+                    
                     detailsHTML += `<tr>`;
                     detailsHTML += `<td>${index + 1}</td>`;
                     detailsHTML += `<td>${set.weight_kg || '-'}</td>`;
                     detailsHTML += `<td>${set.reps || '-'}</td>`;
+                    detailsHTML += `<td>${setVolume > 0 ? setVolume.toFixed(1) : '-'}</td>`;
                     detailsHTML += `<td>${set.duration_seconds || '-'}</td>`;
                     detailsHTML += `<td>${set.notes || '-'}</td>`;
                     detailsHTML += `</tr>`;
@@ -1243,6 +1291,23 @@ function renderMobileWorkoutCards(workouts) {
     container.innerHTML = '';
     
     workouts.forEach(workout => {
+        // Calculate total volume from exercises data
+        let totalVolume = 0;
+        try {
+            const exercises = JSON.parse(workout.exercises);
+            exercises.forEach(exercise => {
+                if (exercise.sets && Array.isArray(exercise.sets)) {
+                    exercise.sets.forEach(set => {
+                        const weight = parseFloat(set.weight_kg) || 0;
+                        const reps = parseInt(set.reps) || 0;
+                        totalVolume += weight * reps;
+                    });
+                }
+            });
+        } catch (error) {
+            // If parsing fails, volume remains 0
+        }
+        
         // Transform the workout data to match the expected format
         const workoutData = {
             id: workout.id,
@@ -1252,7 +1317,7 @@ function renderMobileWorkoutCards(workouts) {
             exercises: workout.total_exercises,
             total_sets: workout.total_sets,
             description: workout.description || '',
-            total_volume: 'N/A' // Could be calculated from exercises data if needed
+            total_volume: totalVolume > 0 ? `${totalVolume.toFixed(1)} kg` : 'N/A'
         };
         
         const card = createWorkoutCard(workoutData);
@@ -1405,6 +1470,6 @@ function updateStats() {
             }
         })
         .catch(error => {
-            console.error('Error updating stats:', error);
+            // Error updating stats
         });
 }
