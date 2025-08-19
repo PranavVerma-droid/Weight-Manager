@@ -72,30 +72,6 @@ db.serialize(() => {
         FOREIGN KEY (user_id) REFERENCES users (id)
     )`);
 
-    // Add description column if it doesn't exist (for existing databases)
-    db.run(`PRAGMA table_info(workouts)`, (err, info) => {
-        if (err) {
-            console.error('Error checking table structure:', err);
-            return;
-        }
-        
-        // Check if description column exists by running a test query
-        db.get(`SELECT description FROM workouts LIMIT 1`, (err, result) => {
-            if (err && err.message.includes('no such column')) {
-                console.log('Adding description column to workouts table...');
-                db.run(`ALTER TABLE workouts ADD COLUMN description TEXT DEFAULT ''`, (alterErr) => {
-                    if (alterErr) {
-                        console.error('Error adding description column:', alterErr);
-                    } else {
-                        console.log('Description column added successfully');
-                    }
-                });
-            } else {
-                console.log('Description column already exists');
-            }
-        });
-    });
-
     // Create default admin user (password: admin123)
     const defaultPassword = bcrypt.hashSync(DEFAULT_ADMIN.password, 10);
     db.run(`INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)`, 

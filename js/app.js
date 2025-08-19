@@ -8,6 +8,9 @@ let weightChart;
 let nutritionChart;
 let workoutChart;
 
+// Mobile workout selection
+let selectedWorkouts = new Set();
+
 // DOM elements
 const weightForm = document.getElementById('weight-form');
 const dataTableBody = document.getElementById('data-table-body');
@@ -76,8 +79,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dateString = now.toISOString().split('T')[0];
     document.getElementById('logDate').value = dateString;
     
+    // Initialize mobile workout controls
+    initMobileWorkoutControls();
+    
     await loadData();
     await loadWorkoutData();
+    updateStats();
 });
 
 // Logout handler
@@ -955,9 +962,7 @@ function displayWorkoutTable(items) {
     });
     
     // Also render mobile cards
-    if (window.mobileWorkouts && window.mobileWorkouts.renderMobileWorkoutCards) {
-        window.mobileWorkouts.renderMobileWorkoutCards(items);
-    }
+    renderMobileWorkoutCards(items);
     
     // Reset select all checkbox
     if (selectAllWorkoutsCheckbox) {
@@ -1163,3 +1168,176 @@ window.editEntry = editEntry;
 window.deleteEntry = deleteEntry;
 window.viewWorkoutDetails = viewWorkoutDetails;
 window.deleteWorkout = deleteWorkout;
+
+// Mobile Workout Functions
+function createWorkoutCard(workout) {
+    const card = document.createElement('div');
+    card.className = 'workout-card';
+    card.dataset.workoutId = workout.id;
+    
+    const isSelected = selectedWorkouts.has(workout.id);
+    if (isSelected) {
+        card.classList.add('selected');
+    }
+    
+    // Format description for display
+    const hasDescription = workout.description && workout.description.trim();
+    const descriptionHTML = hasDescription ? 
+        `<div class="workout-description">
+            <small class="text-muted">${workout.description}</small>
+        </div>` : '';
+    
+    card.innerHTML = `
+        <div class="workout-card-header">
+            <div class="workout-date">${new Date(workout.date).toLocaleDateString()}</div>
+            <div class="form-check">
+                <input class="form-check-input workout-checkbox" type="checkbox" value="${workout.id}" ${isSelected ? 'checked' : ''}>
+            </div>
+        </div>
+        <div class="workout-title">${workout.title}</div>
+        ${descriptionHTML}
+        <div class="workout-details">
+            <div class="workout-detail">
+                <div class="workout-detail-value">${workout.duration}</div>
+                <div class="workout-detail-label">Duration</div>
+            </div>
+            <div class="workout-detail">
+                <div class="workout-detail-value">${workout.exercises}</div>
+                <div class="workout-detail-label">Exercises</div>
+            </div>
+            <div class="workout-detail">
+                <div class="workout-detail-value">${workout.total_sets}</div>
+                <div class="workout-detail-label">Total Sets</div>
+            </div>
+            <div class="workout-detail">
+                <div class="workout-detail-value">${workout.total_volume || 'N/A'}</div>
+                <div class="workout-detail-label">Volume</div>
+            </div>
+        </div>
+        <div class="workout-actions">
+            <button class="btn btn-sm btn-outline-primary view-workout" data-id="${workout.id}">
+                <i class="fas fa-eye"></i> View
+            </button>
+            <button class="btn btn-sm btn-outline-danger delete-workout" data-id="${workout.id}">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        </div>
+    `;
+    
+    // Add click handler for card selection
+    card.addEventListener('click', (e) => {
+        if (e.target.type !== 'checkbox' && !e.target.closest('button')) {
+            const checkbox = card.querySelector('.workout-checkbox');
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event('change'));
+        }
+    });
+    
+    return card;
+}
+
+function renderMobileWorkoutCards(workouts) {
+    const container = document.getElementById('workout-cards-body');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    workouts.forEach(workout => {
+        // Transform the workout data to match the expected format
+        const workoutData = {
+            id: workout.id,
+            title: workout.title,
+            date: workout.workout_date,
+            duration: `${workout.duration_minutes} min`,
+            exercises: workout.total_exercises,
+            total_sets: workout.total_sets,
+            description: workout.description || '',
+            total_volume: 'N/A' // Could be calculated from exercises data if needed
+        };
+        
+        const card = createWorkoutCard(workoutData);
+        container.appendChild(card);
+    });
+    
+    // Add event listeners for checkboxes
+    container.addEventListener('change', (e) => {
+        if (e.target.classList.contains('workout-checkbox')) {
+            const workoutId = e.target.value;
+            const card = e.target.closest('.workout-card');
+            
+            if (e.target.checked) {
+                selectedWorkouts.add(workoutId);
+                card.classList.add('selected');
+            } else {
+                selectedWorkouts.delete(workoutId);
+                card.classList.remove('selected');
+            }
+            
+            updateDeleteButtonState();
+            updateSelectAllState();
+        }
+    });
+    
+    // Add event listeners for action buttons
+    container.addEventListener('click', (e) => {
+        if (e.target.closest('.view-workout')) {
+            const workoutId = e.target.closest('.view-workout').dataset.id;
+            viewWorkoutDetails(workoutId);
+        } else if (e.target.closest('.delete-workout')) {
+            const workoutId = e.target.closest('.delete-workout').dataset.id;
+            if (confirm('Are you sure you want to delete this workout?')) {
+                deleteWorkout(workoutId);
+            }
+        }
+    });
+}
+
+function updateSelectAllState() {
+    const allCheckboxes = document.querySelectorAll('.workout-checkbox');
+    const selectAllDesktop = document.getElementById('select-all-workouts');
+    const selectAllMobile = document.getElementById('select-all-workouts-mobile');
+    
+    const checkedCount = document.querySelectorAll('.workout-checkbox:checked').length;
+    const totalCount = allCheckboxes.length;
+    
+    if (selectAllDesktop) {
+        selectAllDesktop.checked = checkedCount === totalCount && totalCount > 0;
+        selectAllDesktop.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+    }
+    
+    if (selectAllMobile) {
+        selectAllMobile.checked = checkedCount === totalCount && totalCount > 0;
+        selectAllMobile.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+    }
+}
+
+function initMobileWorkoutControls() {
+    // Mobile select all
+    const selectAllMobile = document.getElementById('select-all-workouts-mobile');
+    if (selectAllMobile) {
+        selectAllMobile.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.workout-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+                const workoutId = checkbox.value;
+                const card = checkbox.closest('.workout-card');
+                
+                if (e.target.checked) {
+                    selectedWorkouts.add(workoutId);
+                    if (card) card.classList.add('selected');
+                } else {
+                    selectedWorkouts.delete(workoutId);
+                    if (card) card.classList.remove('selected');
+                }
+            });
+            
+            updateDeleteButtonState();
+        });
+    }
+}
+
+// Update stats for nutrition section
+function updateStats() {
+    // This function can be called to update nutrition stats
+    // Implementation depends on your specific requirements
+}

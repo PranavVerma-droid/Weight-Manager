@@ -353,10 +353,6 @@
             }
 
             /* Mobile workout improvements */
-            .mobile-controls {
-                display: flex;
-            }
-
             .workout-table-container {
                 display: none;
             }
@@ -367,21 +363,117 @@
 
             .workout-card {
                 display: block;
+                border: 1px solid #e2e8f0;
+                border-radius: var(--border-radius);
+                padding: 16px;
+                margin-bottom: 16px;
+                background: white;
+                box-shadow: var(--shadow);
+                transition: all 0.2s ease;
+                position: relative;
+                cursor: pointer;
+                user-select: none;
             }
 
-            .mobile-control-row .btn {
-                flex: 1;
-                min-width: 120px;
-                font-size: 0.8rem;
-                padding: 8px 12px;
+            .workout-card:hover {
+                transform: translateY(-1px);
+                box-shadow: var(--shadow-lg);
             }
 
-            .mobile-control-row span {
-                font-size: 0.85rem;
-                flex: 1;
-                min-width: 100%;
+            .workout-card:active {
+                transform: scale(0.98);
+            }
+
+            .workout-card.selected {
+                border-color: var(--primary-color) !important;
+                background: rgba(99, 102, 241, 0.05) !important;
+                transform: translateY(-1px);
+                box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15) !important;
+            }
+            
+            .workout-card.selected::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 4px;
+                height: 100%;
+                background: var(--primary-color);
+                border-radius: 0 4px 4px 0;
+            }
+
+            .workout-card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid #f1f5f9;
+            }
+
+            .workout-date {
+                font-weight: 600;
+                color: var(--primary-color);
+                font-size: 0.9rem;
+            }
+
+            .workout-title {
+                font-weight: 600;
+                color: var(--dark-color);
+                margin-bottom: 8px;
+            }
+
+            .workout-description {
+                margin-bottom: 12px;
+                padding: 8px;
+                background: rgba(99, 102, 241, 0.1);
+                border-radius: 6px;
+                border-left: 3px solid var(--primary-color);
+            }
+            
+            .workout-description small {
+                font-style: italic;
+                color: #495057;
+            }
+
+            .workout-details {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+
+            .workout-detail {
                 text-align: center;
-                margin-top: 8px;
+                padding: 8px;
+                background: #f8fafc;
+                border-radius: 8px;
+            }
+
+            .workout-detail-value {
+                font-weight: 600;
+                color: var(--primary-color);
+                font-size: 1.1rem;
+            }
+
+            .workout-detail-label {
+                font-size: 0.75rem;
+                color: #6b7280;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .workout-actions {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid #f1f5f9;
+            }
+
+            .workout-checkbox {
+                pointer-events: none;
             }
         }
 
@@ -465,215 +557,220 @@
             </div>
         </div>
 
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value" id="current-weight">--</div>
-                <div class="stat-label">Current Weight (kg)</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="weight-change">--</div>
-                <div class="stat-label">Weight Change</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="avg-calories">--</div>
-                <div class="stat-label">Avg Daily Calories</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="avg-protein">--</div>
-                <div class="stat-label">Avg Daily Protein</div>
-            </div>
+        <!-- Navigation Tabs -->
+        <div class="section-nav mb-4">
+            <ul class="nav nav-tabs nav-fill" id="sectionTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="nutrition-tab" data-bs-toggle="tab" data-bs-target="#nutrition-section" type="button" role="tab">
+                        <i class="fas fa-utensils me-2"></i>Nutrition Tracking
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="workouts-tab" data-bs-toggle="tab" data-bs-target="#workouts-section" type="button" role="tab">
+                        <i class="fas fa-dumbbell me-2"></i>Workout Tracking
+                    </button>
+                </li>
+            </ul>
         </div>
-        
-        <div class="row g-4">
-            <!-- Data Entry Form -->
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Log New Entry</h5>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="sectionTabContent">
+            <!-- Nutrition Section -->
+            <div class="tab-pane fade show active" id="nutrition-section" role="tabpanel">
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="current-weight">--</div>
+                        <div class="stat-label">Current Weight (kg)</div>
                     </div>
-                    <div class="card-body">
-                        <form id="weight-form">
-                            <div class="row g-3">
-                                <div class="col-12">
-                                    <label for="logDate" class="form-label">Date</label>
-                                    <input type="date" class="form-control" id="logDate" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="logWeight" class="form-label">Weight (kg)</label>
-                                    <input type="number" class="form-control" id="logWeight" step="0.1" placeholder="75.5">
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="logCalories" class="form-label">Calories</label>
-                                    <input type="number" class="form-control" id="logCalories" step="0.1" placeholder="2000">
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="logProtein" class="form-label">Protein (g)</label>
-                                    <input type="number" class="form-control" id="logProtein" step="0.1" placeholder="150">
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="logCarbs" class="form-label">Carbs (g)</label>
-                                    <input type="number" class="form-control" id="logCarbs" step="0.1" placeholder="200">
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="logFat" class="form-label">Fat (g)</label>
-                                    <input type="number" class="form-control" id="logFat" step="0.1" placeholder="70">
-                                </div>
-                                <div class="col-12">
-                                    <label for="logMiscInfo" class="form-label">Additional Notes</label>
-                                    <textarea class="form-control" id="logMiscInfo" rows="3" placeholder="Optional notes about your day..."></textarea>
-                                </div>
-                                <div class="col-12">
-                                    <button type="submit" class="btn btn-primary w-100">
-                                        <i class="fas fa-save me-2"></i>Save Entry
-                                    </button>
+                    <div class="stat-card">
+                        <div class="stat-value" id="weight-change">--</div>
+                        <div class="stat-label">Weight Change</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avg-calories">--</div>
+                        <div class="stat-label">Avg Daily Calories</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avg-protein">--</div>
+                        <div class="stat-label">Avg Daily Protein</div>
+                    </div>
+                </div>
+                
+                <div class="row g-4">
+                    <!-- Data Entry Form -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Log New Entry</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="weight-form">
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label for="logDate" class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="logDate" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="logWeight" class="form-label">Weight (kg)</label>
+                                            <input type="number" class="form-control" id="logWeight" step="0.1" placeholder="75.5">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="logCalories" class="form-label">Calories</label>
+                                            <input type="number" class="form-control" id="logCalories" step="0.1" placeholder="2000">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="logProtein" class="form-label">Protein (g)</label>
+                                            <input type="number" class="form-control" id="logProtein" step="0.1" placeholder="150">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="logCarbs" class="form-label">Carbs (g)</label>
+                                            <input type="number" class="form-control" id="logCarbs" step="0.1" placeholder="200">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="logFat" class="form-label">Fat (g)</label>
+                                            <input type="number" class="form-control" id="logFat" step="0.1" placeholder="70">
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="logMiscInfo" class="form-label">Additional Notes</label>
+                                            <textarea class="form-control" id="logMiscInfo" rows="3" placeholder="Optional notes about your day..."></textarea>
+                                        </div>
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-primary w-100">
+                                                <i class="fas fa-save me-2"></i>Save Entry
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts Section -->
+                    <div class="col-lg-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Weight Progress</h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="chart-container">
+                                    <canvas id="weightChart"></canvas>
                                 </div>
                             </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Charts Section -->
-            <div class="col-lg-6">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Weight Progress</h5>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="chart-container">
-                            <canvas id="weightChart"></canvas>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Nutrition Overview</h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="chart-container">
+                                    <canvas id="nutritionChart"></canvas>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
+                <!-- Data Log Section -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-table me-2"></i>Nutrition Log</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Weight (kg)</th>
+                                        <th>Protein (g)</th>
+                                        <th>Calories</th>
+                                        <th>Carbs (g)</th>
+                                        <th>Fat (g)</th>
+                                        <th>Notes</th>
+                                        <th width="120">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="data-table-body">
+                                    <!-- Data will be inserted here dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workouts Section -->
+            <div class="tab-pane fade" id="workouts-section" role="tabpanel">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Nutrition Overview</h5>
+                        <h5 class="mb-0"><i class="fas fa-dumbbell me-2"></i>Workout Tracking</h5>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="chart-container">
-                            <canvas id="nutritionChart"></canvas>
+                    <div class="card-body">
+                        <!-- Controls -->
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                            <button id="import-workout-btn" class="btn btn-success">
+                                <i class="fas fa-file-import me-2"></i>Import Hevy CSV
+                            </button>
+                            <input type="file" id="workout-file-input" accept=".csv" style="display: none;">
+                            <button id="delete-selected-workouts" class="btn btn-danger" disabled>
+                                <i class="fas fa-trash me-2"></i>Delete Selected
+                            </button>
+                            <span class="text-muted">Upload your Hevy export CSV file</span>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0">Recent Workouts</h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="chart-container">
+                                    <canvas id="workoutChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Desktop Table -->
+                        <div class="workout-table-container d-none d-md-block">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th width="50">
+                                                <input type="checkbox" id="select-all-workouts" class="form-check-input" title="Select All">
+                                            </th>
+                                            <th>Date</th>
+                                            <th>Workout Title</th>
+                                            <th>Duration</th>
+                                            <th>Exercises</th>
+                                            <th>Total Sets</th>
+                                            <th width="100">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="workout-table-body">
+                                        <!-- Workout data will be inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Mobile Cards -->
+                        <div class="workout-cards-container d-md-none">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <small class="text-muted">Tap to select workouts</small>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="select-all-workouts-mobile">
+                                    <label class="form-check-label" for="select-all-workouts-mobile">
+                                        Select All
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="workout-cards-body">
+                                <!-- Mobile workout cards will be inserted here -->
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        
-        <hr class="section-divider">
-        
-        <!-- Workout Section -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-dumbbell me-2"></i>Workout Data</h5>
-            </div>
-            <div class="card-body">
-                <!-- Desktop Controls -->
-                <div class="d-flex flex-wrap align-items-center gap-3 mb-4 d-none d-md-flex">
-                    <button id="import-workout-btn" class="btn btn-success">
-                        <i class="fas fa-file-import me-2"></i>Import Hevy CSV
-                    </button>
-                    <input type="file" id="workout-file-input" accept=".csv" style="display: none;">
-                    <button id="delete-selected-workouts" class="btn btn-danger" disabled>
-                        <i class="fas fa-trash me-2"></i>Delete Selected
-                    </button>
-                    <span class="text-muted">Upload your Hevy export CSV file</span>
-                </div>
-
-                <!-- Mobile Controls -->
-                <div class="mobile-controls">
-                    <div class="mobile-control-row">
-                        <button id="import-workout-btn-mobile" class="btn btn-success">
-                            <i class="fas fa-upload me-1"></i>Import CSV
-                        </button>
-                        <button id="delete-selected-workouts-mobile" class="btn btn-danger" disabled>
-                            <i class="fas fa-trash me-1"></i>Delete
-                        </button>
-                    </div>
-                    <div class="mobile-control-row">
-                        <span class="text-muted">Upload your Hevy export CSV file</span>
-                    </div>
-                </div>
-                
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h6 class="mb-0">Recent Workouts</h6>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="chart-container">
-                            <canvas id="workoutChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Desktop Table -->
-                <div class="workout-table-container">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th width="50">
-                                        <input type="checkbox" id="select-all-workouts" class="form-check-input" title="Select All">
-                                    </th>
-                                    <th>Date</th>
-                                    <th>Workout Title</th>
-                                    <th>Duration</th>
-                                    <th>Exercises</th>
-                                    <th>Total Sets</th>
-                                    <th width="100">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="workout-table-body">
-                                <!-- Workout data will be inserted here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Mobile Cards -->
-                <div class="workout-cards-container" style="display: none;">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <small class="text-muted">Tap to select workouts</small>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="select-all-workouts-mobile">
-                            <label class="form-check-label" for="select-all-workouts-mobile">
-                                Select All
-                            </label>
-                        </div>
-                    </div>
-                    <div id="workout-cards-body">
-                        <!-- Mobile workout cards will be inserted here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <hr class="section-divider">
-
-        <!-- Data Log Section -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-table me-2"></i>Data Log</h5>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Weight (kg)</th>
-                                <th>Protein (g)</th>
-                                <th>Calories</th>
-                                <th>Carbs (g)</th>
-                                <th>Fat (g)</th>
-                                <th>Notes</th>
-                                <th width="120">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="data-table-body">
-                            <!-- Data will be inserted here dynamically -->
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>
@@ -714,17 +811,15 @@
                             </div>
                             <div class="mb-3">
                                 <label for="newPassword" class="form-label">New Password</label>
-                                <input type="password" class="form-control" id="newPassword" required minlength="6">
+                                <input type="password" class="form-control" id="newPassword" required>
                             </div>
                             <div class="mb-3">
                                 <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                                <input type="password" class="form-control" id="confirmPassword" required minlength="6">
+                                <input type="password" class="form-control" id="confirmPassword" required>
                             </div>
                             <button type="submit" class="btn btn-primary">Change Password</button>
                         </form>
-                    </div>
-                    
-                    <hr>
+                    </div>                    <hr>
                     
                     <div class="mb-3">
                         <h6>Application Info</h6>
@@ -790,6 +885,5 @@
     </div>
 
     <script src="js/app.js"></script>
-    <script src="js/mobile-workouts.js"></script>
 </body>
 </html>
