@@ -11,6 +11,13 @@ function createWorkoutCard(workout) {
         card.classList.add('selected');
     }
     
+    // Format description for display
+    const hasDescription = workout.description && workout.description.trim();
+    const descriptionHTML = hasDescription ? 
+        `<div class="workout-description">
+            <small class="text-muted">${workout.description}</small>
+        </div>` : '';
+    
     card.innerHTML = `
         <div class="workout-card-header">
             <div class="workout-date">${new Date(workout.date).toLocaleDateString()}</div>
@@ -19,6 +26,7 @@ function createWorkoutCard(workout) {
             </div>
         </div>
         <div class="workout-title">${workout.title}</div>
+        ${descriptionHTML}
         <div class="workout-details">
             <div class="workout-detail">
                 <div class="workout-detail-value">${workout.duration}</div>
@@ -38,6 +46,9 @@ function createWorkoutCard(workout) {
             </div>
         </div>
         <div class="workout-actions">
+            <button class="btn btn-sm btn-outline-primary view-workout" data-id="${workout.id}">
+                <i class="fas fa-eye"></i> View
+            </button>
             <button class="btn btn-sm btn-outline-danger delete-workout" data-id="${workout.id}">
                 <i class="fas fa-trash"></i> Delete
             </button>
@@ -63,7 +74,19 @@ function renderMobileWorkoutCards(workouts) {
     container.innerHTML = '';
     
     workouts.forEach(workout => {
-        const card = createWorkoutCard(workout);
+        // Transform the workout data to match the expected format
+        const workoutData = {
+            id: workout.id,
+            title: workout.title,
+            date: workout.workout_date,
+            duration: `${workout.duration_minutes} min`,
+            exercises: workout.total_exercises,
+            total_sets: workout.total_sets,
+            description: workout.description || '',
+            total_volume: 'N/A' // Could be calculated from exercises data if needed
+        };
+        
+        const card = createWorkoutCard(workoutData);
         container.appendChild(card);
     });
     
@@ -86,9 +109,12 @@ function renderMobileWorkoutCards(workouts) {
         }
     });
     
-    // Add event listeners for delete buttons
+    // Add event listeners for action buttons
     container.addEventListener('click', (e) => {
-        if (e.target.closest('.delete-workout')) {
+        if (e.target.closest('.view-workout')) {
+            const workoutId = e.target.closest('.view-workout').dataset.id;
+            viewWorkoutDetails(workoutId);
+        } else if (e.target.closest('.delete-workout')) {
             const workoutId = e.target.closest('.delete-workout').dataset.id;
             if (confirm('Are you sure you want to delete this workout?')) {
                 deleteWorkout(workoutId);
@@ -211,6 +237,19 @@ const mobileStyles = `
     
     .workout-checkbox {
         pointer-events: none;
+    }
+    
+    .workout-description {
+        margin-bottom: 12px;
+        padding: 8px;
+        background: rgba(99, 102, 241, 0.1);
+        border-radius: 6px;
+        border-left: 3px solid var(--primary-color);
+    }
+    
+    .workout-description small {
+        font-style: italic;
+        color: #495057;
     }
 `;
 

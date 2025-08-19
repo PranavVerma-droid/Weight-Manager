@@ -764,7 +764,9 @@ async function processHevyCSV(csvText) {
             title: header.indexOf('title'),
             start_time: header.indexOf('start_time'),
             end_time: header.indexOf('end_time'),
+            description: header.indexOf('description'),
             exercise_title: header.indexOf('exercise_title'),
+            exercise_notes: header.indexOf('exercise_notes'),
             set_index: header.indexOf('set_index'),
             weight_kg: header.indexOf('weight_kg'),
             reps: header.indexOf('reps'),
@@ -788,6 +790,7 @@ async function processHevyCSV(csvText) {
                     title: columns[columnIndices.title]?.replace(/"/g, ''),
                     start_time: columns[columnIndices.start_time]?.replace(/"/g, ''),
                     end_time: columns[columnIndices.end_time]?.replace(/"/g, ''),
+                    description: columns[columnIndices.description]?.replace(/"/g, '') || '',
                     exercises: new Map()
                 });
             }
@@ -803,7 +806,8 @@ async function processHevyCSV(csvText) {
                 set_index: parseInt(columns[columnIndices.set_index]) || 0,
                 weight_kg: parseFloat(columns[columnIndices.weight_kg]) || null,
                 reps: parseInt(columns[columnIndices.reps]) || null,
-                duration_seconds: parseInt(columns[columnIndices.duration_seconds]) || null
+                duration_seconds: parseInt(columns[columnIndices.duration_seconds]) || null,
+                notes: columns[columnIndices.exercise_notes]?.replace(/"/g, '') || ''
             };
             
             workout.exercises.get(exerciseTitle).push(setData);
@@ -818,40 +822,46 @@ async function processHevyCSV(csvText) {
                 // Calculate duration
                 const startTime = new Date(workout.start_time);
                 const endTime = new Date(workout.end_time);
-                const durationMinutes = Math.round((endTime - startTime) / 60000);
+                const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
                 
-                // Prepare exercises data
-                const exercisesData = [];
+                // Format date
+                const workoutDate = startTime.toISOString().split('T')[0];
+                
+                // Convert exercises to our format
+                const exercisesArray = [];
                 for (const [exerciseTitle, sets] of workout.exercises) {
-                    exercisesData.push({
+                    exercisesArray.push({
                         title: exerciseTitle,
-                        sets: sets
+                        sets: sets.map(set => ({
+                            set_index: set.set_index,
+                            weight_kg: set.weight_kg,
+                            reps: set.reps,
+                            duration_seconds: set.duration_seconds,
+                            notes: set.notes
+                        }))
                     });
                 }
                 
-                // Create workout record
                 const workoutData = {
                     title: workout.title,
-                    workout_date: startTime.toISOString().split('T')[0],
-                    start_time: startTime.toTimeString().split(' ')[0],
+                    workout_date: workoutDate,
+                    start_time: startTime.toTimeString().split(' ')[0], // Format as HH:MM:SS
                     duration_minutes: durationMinutes,
-                    exercises: JSON.stringify(exercisesData),
-                    total_exercises: exercisesData.length,
-                    total_sets: exercisesData.reduce((total, exercise) => total + exercise.sets.length, 0)
+                    exercises: JSON.stringify(exercisesArray),
+                    total_exercises: exercisesArray.length,
+                    total_sets: exercisesArray.reduce((total, ex) => total + ex.sets.length, 0),
+                    description: workout.description
                 };
                 
                 await apiCall('/workouts', {
                     method: 'POST',
                     body: JSON.stringify(workoutData)
                 });
-                newWorkouts++;
                 
+                newWorkouts++;
             } catch (error) {
-                if (error.message.includes('400') || error.message.includes('Workout already exists')) {
-                    skippedWorkouts++;
-                } else {
-                    console.error('Error importing workout:', error);
-                }
+                console.error('Error importing workout:', error);
+                skippedWorkouts++;
             }
         }
         
@@ -860,6 +870,7 @@ async function processHevyCSV(csvText) {
         if (skippedWorkouts > 0) {
             message += `\nSkipped (already exists): ${skippedWorkouts}`;
         }
+        message += `\n\nNew features imported:\n• Workout descriptions\n• Exercise set notes`;
         alert(message);
         
         // Reload workout data
@@ -919,12 +930,18 @@ function displayWorkoutTable(items) {
         const formattedDate = date.toLocaleDateString();
         const duration = `${item.duration_minutes} min`;
         
+        // Create workout title with description if available
+        let titleDisplay = item.title;
+        if (item.description && item.description.trim()) {
+            titleDisplay += ` <small class="text-muted">- ${item.description}</small>`;
+        }
+        
         row.innerHTML = `
             <td>
                 <input type="checkbox" class="workout-checkbox" value="${item.id}" onchange="updateDeleteButtonState()">
             </td>
             <td>${formattedDate}</td>
-            <td>${item.title}</td>
+            <td>${titleDisplay}</td>
             <td>${duration}</td>
             <td>${item.total_exercises}</td>
             <td>${item.total_sets}</td>
@@ -936,6 +953,11 @@ function displayWorkoutTable(items) {
         
         workoutTableBody.appendChild(row);
     });
+    
+    // Also render mobile cards
+    if (window.mobileWorkouts && window.mobileWorkouts.renderMobileWorkoutCards) {
+        window.mobileWorkouts.renderMobileWorkoutCards(items);
+    }
     
     // Reset select all checkbox
     if (selectAllWorkoutsCheckbox) {
@@ -950,37 +972,68 @@ function displayWorkoutTable(items) {
 async function viewWorkoutDetails(id) {
     try {
         const workout = await apiCall(`/workouts/${id}`);
+        console.log('Workout data received:', workout); // Debug log
         const exercises = JSON.parse(workout.exercises);
         
         let detailsHTML = `<h4>${workout.title}</h4>`;
         detailsHTML += `<p><strong>Date:</strong> ${new Date(workout.workout_date).toLocaleDateString()}</p>`;
         detailsHTML += `<p><strong>Duration:</strong> ${workout.duration_minutes} minutes</p>`;
+        
+        // Add workout description if it exists
+        console.log('Workout description:', workout.description); // Debug log
+        if (workout.description && workout.description.trim()) {
+            detailsHTML += `<div class="alert alert-info" style="margin: 15px 0;">`;
+            detailsHTML += `<h6><i class="fas fa-info-circle me-2"></i>Workout Notes:</h6>`;
+            detailsHTML += `<p class="mb-0">${workout.description}</p>`;
+            detailsHTML += `</div>`;
+        }
+        
         detailsHTML += `<h5>Exercises:</h5>`;
         
         exercises.forEach(exercise => {
-            detailsHTML += `<h6>${exercise.title}</h6>`;
-            detailsHTML += `<ul>`;
-            exercise.sets.forEach((set, index) => {
-                let setInfo = `Set ${set.set_index + 1}: `;
-                if (set.weight_kg) setInfo += `${set.weight_kg}kg `;
-                if (set.reps) setInfo += `${set.reps} reps `;
-                if (set.duration_seconds) setInfo += `${set.duration_seconds}s `;
-                detailsHTML += `<li>${setInfo}</li>`;
-            });
-            detailsHTML += `</ul>`;
+            detailsHTML += `<div class="exercise-section" style="margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px;">`;
+            detailsHTML += `<h6 style="color: #6366f1; margin-bottom: 10px;">${exercise.title}</h6>`;
+            
+            if (exercise.sets && exercise.sets.length > 0) {
+                detailsHTML += `<table class="table table-sm table-striped">`;
+                detailsHTML += `<thead><tr><th>Set</th><th>Weight (kg)</th><th>Reps</th><th>Duration (s)</th><th>Notes</th></tr></thead><tbody>`;
+                
+                exercise.sets.forEach((set, index) => {
+                    detailsHTML += `<tr>`;
+                    detailsHTML += `<td>${index + 1}</td>`;
+                    detailsHTML += `<td>${set.weight_kg || '-'}</td>`;
+                    detailsHTML += `<td>${set.reps || '-'}</td>`;
+                    detailsHTML += `<td>${set.duration_seconds || '-'}</td>`;
+                    detailsHTML += `<td>${set.notes || '-'}</td>`;
+                    detailsHTML += `</tr>`;
+                });
+                
+                detailsHTML += `</tbody></table>`;
+            }
+            
+            detailsHTML += `</div>`;
         });
         
         // Create a modal or alert to show details
-        const detailsWindow = window.open('', '_blank', 'width=600,height=800,scrollbars=yes');
+        const detailsWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes');
         detailsWindow.document.write(`
             <html>
                 <head>
                     <title>Workout Details</title>
                     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <style>
+                        body { font-family: 'Inter', sans-serif; }
+                        .exercise-section { background: #f8f9fa; }
+                        h4 { color: #6366f1; }
+                        h6 { border-bottom: 2px solid #e9ecef; padding-bottom: 5px; }
+                    </style>
                 </head>
                 <body class="p-4">
                     ${detailsHTML}
-                    <button onclick="window.close()" class="btn btn-secondary mt-3">Close</button>
+                    <div class="mt-4">
+                        <button onclick="window.close()" class="btn btn-secondary">Close</button>
+                        <button onclick="window.print()" class="btn btn-primary ms-2">Print</button>
+                    </div>
                 </body>
             </html>
         `);

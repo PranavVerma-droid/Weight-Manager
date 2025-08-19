@@ -67,9 +67,34 @@ db.serialize(() => {
         exercises TEXT NOT NULL,
         total_exercises INTEGER NOT NULL,
         total_sets INTEGER NOT NULL,
+        description TEXT DEFAULT '',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
     )`);
+
+    // Add description column if it doesn't exist (for existing databases)
+    db.run(`PRAGMA table_info(workouts)`, (err, info) => {
+        if (err) {
+            console.error('Error checking table structure:', err);
+            return;
+        }
+        
+        // Check if description column exists by running a test query
+        db.get(`SELECT description FROM workouts LIMIT 1`, (err, result) => {
+            if (err && err.message.includes('no such column')) {
+                console.log('Adding description column to workouts table...');
+                db.run(`ALTER TABLE workouts ADD COLUMN description TEXT DEFAULT ''`, (alterErr) => {
+                    if (alterErr) {
+                        console.error('Error adding description column:', alterErr);
+                    } else {
+                        console.log('Description column added successfully');
+                    }
+                });
+            } else {
+                console.log('Description column already exists');
+            }
+        });
+    });
 
     // Create default admin user (password: admin123)
     const defaultPassword = bcrypt.hashSync(DEFAULT_ADMIN.password, 10);
@@ -170,14 +195,16 @@ app.get('/api/workouts', authenticateToken, (req, res) => {
     db.all('SELECT * FROM workouts WHERE user_id = ? ORDER BY workout_date DESC, start_time DESC', 
         [req.user.id], (err, rows) => {
         if (err) {
+            console.error('Database error:', err);
             return res.status(500).json({ error: 'Database error' });
         }
+        console.log('Sample workout from DB:', rows[0]); // Debug log to see structure
         res.json(rows);
     });
 });
 
 app.post('/api/workouts', authenticateToken, (req, res) => {
-    const { title, workout_date, start_time, duration_minutes, exercises, total_exercises, total_sets } = req.body;
+    const { title, workout_date, start_time, duration_minutes, exercises, total_exercises, total_sets, description } = req.body;
     
     // Check if workout already exists
     db.get('SELECT id FROM workouts WHERE user_id = ? AND workout_date = ? AND start_time = ? AND title = ?', 
@@ -191,9 +218,9 @@ app.post('/api/workouts', authenticateToken, (req, res) => {
         }
         
         db.run(`INSERT INTO workouts 
-            (user_id, title, workout_date, start_time, duration_minutes, exercises, total_exercises, total_sets)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.id, title, workout_date, start_time, duration_minutes, exercises, total_exercises, total_sets],
+            (user_id, title, workout_date, start_time, duration_minutes, exercises, total_exercises, total_sets, description)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.user.id, title, workout_date, start_time, duration_minutes, exercises, total_exercises, total_sets, description || ''],
             function(err) {
                 if (err) {
                     return res.status(500).json({ error: 'Database error' });
@@ -207,11 +234,13 @@ app.get('/api/workouts/:id', authenticateToken, (req, res) => {
     db.get('SELECT * FROM workouts WHERE id = ? AND user_id = ?', 
         [req.params.id, req.user.id], (err, row) => {
         if (err) {
+            console.error('Database error:', err);
             return res.status(500).json({ error: 'Database error' });
         }
         if (!row) {
             return res.status(404).json({ error: 'Workout not found' });
         }
+        console.log('Workout data from DB:', row); // Debug log
         res.json(row);
     });
 });
@@ -429,10 +458,10 @@ app.post('/api/import', authenticateToken, (req, res) => {
                     } else {
                         // Insert new
                         db.run(`INSERT INTO workouts 
-                            (user_id, title, workout_date, start_time, duration_minutes, exercises, total_exercises, total_sets)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                            (user_id, title, workout_date, start_time, duration_minutes, exercises, total_exercises, total_sets, description)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                             [req.user.id, workout.title, workout.workout_date, workout.start_time, 
-                             workout.duration_minutes, workout.exercises, workout.total_exercises, workout.total_sets], () => {
+                             workout.duration_minutes, workout.exercises, workout.total_exercises, workout.total_sets, workout.description || ''], () => {
                             importedWorkouts++;
                             processed++;
                             if (processed === workouts.length) resolve();
