@@ -1,181 +1,442 @@
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pocketbase@0.26.0/dist/pocketbase.umd.js"></script>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weight & Diet Management App</title>
+    <title>Weight Manager - Analytics Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.26.0/dist/pocketbase.umd.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Dark Mode Color Palette */
-            --primary-color: #6366f1;
-            --primary-hover: #5855eb;
-            --secondary-color: #374151;
-            --success-color: #10b981;
-            --danger-color: #ef4444;
-            --warning-color: #f59e0b;
-            --info-color: #3b82f6;
+            /* Modern Professional Color Palette */
+            --primary: #2563eb;
+            --primary-light: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --accent: #0ea5e9;
+            --success: #059669;
+            --warning: #d97706;
+            --danger: #dc2626;
             
-            /* Background Colors */
-            --bg-primary: #111827;
-            --bg-secondary: #1f2937;
-            --bg-tertiary: #374151;
-            --bg-card: #1f2937;
-            --bg-elevated: #374151;
+            /* Neutral Grays */
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
             
-            /* Text Colors */
-            --text-primary: #f9fafb;
-            --text-secondary: #d1d5db;
-            --text-muted: #9ca3af;
-            --text-inverse: #111827;
+            /* Surface Colors */
+            --surface-primary: #ffffff;
+            --surface-secondary: #f8fafc;
+            --surface-tertiary: #f1f5f9;
+            --surface-dark: #1e293b;
+            --surface-darker: #0f172a;
             
-            /* Border Colors */
-            --border-primary: #374151;
-            --border-secondary: #4b5563;
-            --border-accent: #6b7280;
+            /* Borders & Shadows */
+            --border-light: #e2e8f0;
+            --border-medium: #cbd5e1;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
             
-            /* Other */
-            --border-radius: 12px;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+            /* Typography */
+            --font-size-xs: 0.75rem;
+            --font-size-sm: 0.875rem;
+            --font-size-base: 1rem;
+            --font-size-lg: 1.125rem;
+            --font-size-xl: 1.25rem;
+            --font-size-2xl: 1.5rem;
+            --font-size-3xl: 1.875rem;
+            --font-size-4xl: 2.25rem;
+            
+            /* Spacing */
+            --space-1: 0.25rem;
+            --space-2: 0.5rem;
+            --space-3: 0.75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --space-8: 2rem;
+            --space-10: 2.5rem;
+            --space-12: 3rem;
+            
+            /* Border Radius */
+            --radius-sm: 0.25rem;
+            --radius-md: 0.375rem;
+            --radius-lg: 0.5rem;
+            --radius-xl: 0.75rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         body {
-            background: var(--bg-primary);
+            background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
             min-height: 100vh;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            padding: 0;
-            margin: 0;
-            color: var(--text-primary);
+            color: var(--gray-900);
+            line-height: 1.6;
         }
 
-        .main-container {
-            background: var(--bg-secondary);
-            backdrop-filter: blur(10px);
-            border-radius: var(--border-radius);
-            border: 1px solid var(--border-primary);
-            box-shadow: var(--shadow-lg);
-            margin: 20px;
-            padding: 30px;
-            min-height: calc(100vh - 40px);
+        /* Layout Components */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
         }
 
-        .header-section {
-            background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
+        .sidebar {
+            width: 280px;
+            background: var(--surface-primary);
+            border-right: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            padding: var(--space-6);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            text-decoration: none;
+            color: var(--gray-900);
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: white;
-            padding: 30px;
-            border-radius: var(--border-radius);
-            margin: -30px -30px 30px -30px;
-            box-shadow: var(--shadow);
+            font-size: 1.25rem;
+            font-weight: 600;
         }
 
-        .header-title {
-            font-size: 2.5rem;
+        .logo-text {
+            font-size: var(--font-size-xl);
             font-weight: 700;
-            margin: 0;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            color: var(--gray-900);
         }
 
-        .header-controls {
-            gap: 10px;
-            flex-wrap: wrap;
+        .logo-subtitle {
+            font-size: var(--font-size-xs);
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: -2px;
         }
 
-        .btn {
-            border-radius: 8px;
-            font-weight: 500;
-            padding: 8px 16px;
+        .sidebar-nav {
+            padding: var(--space-4) 0;
+        }
+
+        .nav-section {
+            margin-bottom: var(--space-6);
+        }
+
+        .nav-section-title {
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 0 var(--space-6) var(--space-2) var(--space-6);
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: var(--space-3) var(--space-6);
+            color: var(--gray-700);
+            text-decoration: none;
             transition: all 0.2s ease;
-            border: none;
+            border-left: 3px solid transparent;
+            font-weight: 500;
         }
 
-        .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        .nav-item:hover {
+            background: var(--gray-50);
+            color: var(--primary);
+            border-left-color: var(--primary);
         }
 
-        .btn-primary {
-            background: var(--primary-color);
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(37, 99, 235, 0.1), transparent);
+            color: var(--primary);
+            border-left-color: var(--primary);
+            font-weight: 600;
         }
 
-        .btn-success {
-            background: var(--success-color);
+        .nav-item i {
+            width: 20px;
+            margin-right: var(--space-3);
+            text-align: center;
         }
 
-        .btn-danger {
-            background: var(--danger-color);
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            background: var(--gray-50);
         }
 
+        .topbar {
+            background: var(--surface-primary);
+            border-bottom: 1px solid var(--border-light);
+            padding: var(--space-4) var(--space-6);
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            color: var(--gray-600);
+            font-size: var(--font-size-sm);
+        }
+
+        .page-title {
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 0;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-lg);
+            background: var(--gray-50);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .user-menu:hover {
+            background: var(--gray-100);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: var(--font-size-sm);
+        }
+
+        .content-area {
+            padding: var(--space-6);
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Enhanced Card System */
         .card {
-            border: none;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            margin-bottom: 24px;
-            background: var(--bg-card);
-            color: var(--text-primary);
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            overflow: hidden;
         }
 
         .card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-medium);
         }
 
         .card-header {
-            background: var(--bg-elevated);
-            border-bottom: 1px solid var(--border-primary);
+            padding: var(--space-5) var(--space-6);
+            background: var(--surface-secondary);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: var(--font-size-lg);
             font-weight: 600;
-            color: var(--text-primary);
-            border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+            color: var(--gray-900);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .card-body {
+            padding: var(--space-6);
+        }
+
+        /* Enhanced Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-4);
+            border: 1px solid transparent;
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-700);
+            border-color: var(--border-light);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-200);
+            color: var(--gray-900);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #047857;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline-primary {
+            background: transparent;
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: var(--space-2) var(--space-3);
+            font-size: var(--font-size-xs);
+        }
+
+        .btn-lg {
+            padding: var(--space-4) var(--space-6);
+            font-size: var(--font-size-lg);
+        }
+
+        /* Enhanced Forms */
+        .form-group {
+            margin-bottom: var(--space-5);
+        }
+
+        .form-label {
+            display: block;
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: var(--space-2);
         }
 
         .form-control {
-            border-radius: 8px;
-            border: 2px solid var(--border-primary);
-            padding: 12px 16px;
+            width: 100%;
+            padding: var(--space-3) var(--space-4);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-base);
+            background: var(--surface-primary);
+            color: var(--gray-900);
             transition: all 0.2s ease;
-            background: var(--bg-elevated);
-            color: var(--text-primary);
         }
 
         .form-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-            background: var(--bg-elevated);
-            color: var(--text-primary);
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
-        .chart-container {
-            height: 350px;
-            padding: 20px;
-            background: var(--bg-elevated);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            margin-bottom: 24px;
-        }
-
+        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
         }
 
         .stat-card {
-            background: var(--bg-card);
-            padding: 24px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            text-align: center;
-            transition: all 0.2s ease;
-            border: 1px solid var(--border-primary);
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
         }
 
         .stat-card:hover {
@@ -183,438 +444,259 @@
             box-shadow: var(--shadow-lg);
         }
 
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-3);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+        }
+
         .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 8px;
+            font-size: var(--font-size-3xl);
+            font-weight: 800;
+            color: var(--gray-900);
+            line-height: 1;
+            margin-bottom: var(--space-1);
         }
 
         .stat-label {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+
+        .stat-change {
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+        }
+
+        .stat-change.positive {
+            color: var(--success);
+        }
+
+        .stat-change.negative {
+            color: var(--danger);
+        }
+
+        /* Enhanced Tables */
+        .table-container {
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
         }
 
         .table {
-            background: var(--bg-card) !important;
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            color: var(--text-primary) !important;
-            border: 1px solid var(--border-primary);
+            margin: 0;
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        .table thead th {
-            background: var(--bg-elevated) !important;
-            border: none;
+        .table th {
+            background: var(--gray-50);
+            padding: var(--space-4) var(--space-5);
+            font-size: var(--font-size-sm);
             font-weight: 600;
-            color: var(--text-primary) !important;
-            padding: 16px;
-            border-bottom: 1px solid var(--border-primary) !important;
+            color: var(--gray-700);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-light);
         }
 
-        .table tbody td {
-            padding: 16px;
-            border-color: var(--border-primary) !important;
+        .table td {
+            padding: var(--space-4) var(--space-5);
+            border-bottom: 1px solid var(--border-light);
+            color: var(--gray-900);
             vertical-align: middle;
-            color: var(--text-primary) !important;
-            background: var(--bg-card) !important;
-        }
-
-        .table tbody tr {
-            background: var(--bg-card) !important;
         }
 
         .table tbody tr:hover {
-            background-color: var(--bg-elevated) !important;
+            background: var(--gray-50);
         }
 
-        .table tbody tr:hover td {
-            background-color: var(--bg-elevated) !important;
+        .table tbody tr:last-child td {
+            border-bottom: none;
         }
 
-        .section-divider {
-            margin: 40px 0;
-            border: none;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+        /* Chart Containers */
+        .chart-container {
+            background: var(--surface-primary);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            margin-bottom: var(--space-6);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
         }
 
-        .modal-content {
-            border: none;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-lg);
-            background: var(--bg-card);
-            color: var(--text-primary);
-        }
-
-        .modal-header {
-            background: var(--bg-elevated);
-            border-bottom: 1px solid var(--border-primary);
-            border-radius: var(--border-radius) var(--border-radius) 0 0;
-        }
-
-        /* Mobile workout cards */
-        .workout-card {
-            display: none;
-            border: 1px solid #e2e8f0;
-            border-radius: var(--border-radius);
-            padding: 16px;
-            margin-bottom: 16px;
-            background: white;
-            box-shadow: var(--shadow);
-            transition: all 0.2s ease;
-        }
-
-        .workout-card:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .workout-card-header {
-            display: flex;
-            justify-content: between;
-            align-items: center;
-            margin-bottom: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .workout-date {
-            font-weight: 600;
-            color: var(--primary-color);
-            font-size: 0.9rem;
-        }
-
-        .workout-title {
-            font-weight: 600;
-            color: var(--dark-color);
-            margin-bottom: 8px;
-        }
-
-        .workout-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
-        .workout-detail {
-            text-align: center;
-            padding: 8px;
-            background: #f8fafc;
-            border-radius: 8px;
-        }
-
-        .workout-detail-value {
-            font-weight: 600;
-            color: var(--primary-color);
-            font-size: 1.1rem;
-        }
-
-        .workout-detail-label {
-            font-size: 0.75rem;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .workout-actions {
+        .chart-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #f1f5f9;
+            margin-bottom: var(--space-4);
+            padding-bottom: var(--space-4);
+            border-bottom: 1px solid var(--border-light);
         }
 
-        .mobile-controls {
-            display: none;
-            flex-direction: column;
-            gap: 16px;
-            margin-bottom: 24px;
+        .chart-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--gray-900);
+            margin: 0;
         }
 
-        .mobile-control-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            align-items: center;
+        .chart-wrapper {
+            height: 350px;
+            position: relative;
         }
 
-        /* Nav tabs dark theme */
-        .nav-tabs {
-            border-bottom: 1px solid var(--border-primary);
-        }
-
-        .nav-tabs .nav-link {
+        /* Modal Enhancements */
+        .modal-content {
             border: none;
-            color: var(--text-muted);
-            padding: 12px 24px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            background: transparent;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
         }
 
-        .nav-tabs .nav-link:hover {
-            border: none;
-            color: var(--primary-color);
-            background: rgba(99, 102, 241, 0.1);
-        }
-
-        .nav-tabs .nav-link.active {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-        }
-
-        /* Form labels dark theme */
-        .form-label {
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        /* Modal dark theme */
-        .modal-header .btn-close {
-            filter: invert(1);
+        .modal-header {
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--border-light);
+            padding: var(--space-5) var(--space-6);
         }
 
         .modal-title {
-            color: var(--text-primary);
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+            color: var(--gray-900);
         }
 
-        .text-muted {
-            color: var(--text-muted) !important;
+        .modal-body {
+            padding: var(--space-6);
         }
 
-        /* Button outline variants for dark theme */
-        .btn-outline-primary {
-            color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-
-        .btn-outline-primary:hover {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-            color: white;
-        }
-
-        .btn-outline-danger {
-            color: var(--danger-color);
-            border-color: var(--danger-color);
-        }
-
-        .btn-outline-danger:hover {
-            background-color: var(--danger-color);
-            border-color: var(--danger-color);
-            color: white;
-        }
-
-        .btn-outline-light {
-            color: rgba(255, 255, 255, 0.8);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .btn-outline-light:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.5);
-            color: white;
+        .modal-footer {
+            background: var(--gray-50);
+            border-top: 1px solid var(--border-light);
+            padding: var(--space-4) var(--space-6);
         }
 
         /* Mobile Responsiveness */
-        @media (max-width: 768px) {
-            .main-container {
-                margin: 10px;
-                padding: 20px;
-                min-height: calc(100vh - 20px);
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                z-index: 1100;
             }
 
-            .header-section {
-                padding: 20px;
-                margin: -20px -20px 20px -20px;
+            .sidebar.mobile-open {
+                transform: translateX(0);
             }
 
-            .header-title {
-                font-size: 1.75rem;
-                margin-bottom: 16px;
+            .main-content {
+                margin-left: 0;
             }
 
-            .header-controls {
-                justify-content: center;
-            }
-
-            .btn {
-                padding: 10px 16px;
-                font-size: 0.875rem;
-            }
-
-            .chart-container {
-                height: 280px;
-                padding: 15px;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 15px;
-            }
-
-            .stat-card {
-                padding: 20px 16px;
-            }
-
-            .stat-value {
-                font-size: 1.5rem;
-            }
-
-            .table-responsive {
-                border-radius: var(--border-radius);
-                box-shadow: var(--shadow);
-            }
-
-            .card {
-                margin-bottom: 20px;
-            }
-
-            /* Mobile workout improvements */
-            .workout-table-container {
-                display: none;
-            }
-
-            .workout-cards-container {
-                display: block;
-            }
-
-            .workout-card {
-                display: block;
-                border: 1px solid var(--border-primary);
-                border-radius: var(--border-radius);
-                padding: 16px;
-                margin-bottom: 16px;
-                background: var(--bg-card);
-                box-shadow: var(--shadow);
-                transition: all 0.2s ease;
-                position: relative;
-                cursor: pointer;
-                user-select: none;
-            }
-
-            .workout-card:hover {
-                transform: translateY(-1px);
-                box-shadow: var(--shadow-lg);
-            }
-
-            .workout-card:active {
-                transform: scale(0.98);
-            }
-
-            .workout-card.selected {
-                border-color: var(--primary-color) !important;
-                background: rgba(99, 102, 241, 0.1) !important;
-                transform: translateY(-1px);
-                box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15) !important;
-            }
-            
-            .workout-card.selected::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 4px;
-                height: 100%;
-                background: var(--primary-color);
-                border-radius: 0 4px 4px 0;
-            }
-
-            .workout-card-header {
+            .mobile-toggle {
                 display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 12px;
-                padding-bottom: 12px;
-                border-bottom: 1px solid var(--border-primary);
-            }
-
-            .workout-date {
-                font-weight: 600;
-                color: var(--primary-color);
-                font-size: 0.9rem;
-            }
-
-            .workout-title {
-                font-weight: 600;
-                color: var(--text-primary);
-                margin-bottom: 8px;
-            }
-
-            .workout-description {
-                margin-bottom: 12px;
-                padding: 8px;
-                background: rgba(99, 102, 241, 0.1);
-                border-radius: 6px;
-                border-left: 3px solid var(--primary-color);
-            }
-            
-            .workout-description small {
-                font-style: italic;
-                color: var(--text-muted);
-            }
-
-            .workout-details {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 12px;
-                margin-bottom: 12px;
-            }
-
-            .workout-detail {
-                text-align: center;
-                padding: 8px;
-                background: var(--bg-elevated);
-                border-radius: 8px;
-            }
-
-            .workout-detail-value {
-                font-weight: 600;
-                color: var(--primary-color);
-                font-size: 1.1rem;
-            }
-
-            .workout-detail-label {
-                font-size: 0.75rem;
-                color: var(--text-muted);
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
-
-            .workout-actions {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 12px;
-                padding-top: 12px;
-                border-top: 1px solid var(--border-primary);
-            }
-
-            .workout-checkbox {
-                pointer-events: none;
             }
         }
 
-        @media (max-width: 576px) {
-            .header-controls .btn {
-                flex: 1;
-                min-width: 120px;
+        @media (max-width: 768px) {
+            .content-area {
+                padding: var(--space-4);
             }
 
-            .form-control {
-                padding: 10px 12px;
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: var(--space-3);
             }
 
-            .modal-dialog {
-                margin: 10px;
+            .stat-card {
+                padding: var(--space-4);
             }
+
+            .stat-value {
+                font-size: var(--font-size-2xl);
+            }
+
+            .chart-wrapper {
+                height: 300px;
+            }
+
+            .topbar {
+                padding: var(--space-3) var(--space-4);
+            }
+
+            .page-title {
+                font-size: var(--font-size-xl);
+            }
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: var(--primary);
+            border: none;
+            color: white;
+            padding: var(--space-2);
+            border-radius: var(--radius-lg);
+            font-size: 1.125rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Enhanced dropdown styles */
+        .dropdown-menu {
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-lg);
+            border-radius: var(--radius-xl);
+            padding: var(--space-2);
+            min-width: 200px;
+        }
+
+        .dropdown-item {
+            border-radius: var(--radius-lg);
+            padding: var(--space-2) var(--space-3);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .dropdown-item:hover {
+            background: var(--gray-100);
+            color: var(--gray-900);
+        }
+
+        .dropdown-item.text-danger:hover {
+            background: rgba(220, 38, 38, 0.1);
+            color: var(--danger);
+        }
+
+        .dropdown-header {
+            color: var(--gray-600);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: var(--space-2) var(--space-3);
+        }
+
+        .dropdown-divider {
+            margin: var(--space-2) 0;
+            border-color: var(--border-light);
         }
 
         /* Animations */
@@ -639,172 +721,362 @@
         }
 
         ::-webkit-scrollbar-track {
-            background: #f1f5f9;
+            background: var(--gray-100);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
+            background: var(--gray-300);
             border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
+            background: var(--gray-400);
+        }
+
+        /* Workout Cards for Mobile */
+        .workout-card {
+            display: none;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            padding: var(--space-4);
+            margin-bottom: var(--space-4);
+            background: var(--surface-primary);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+
+        .workout-card:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .workout-card.selected {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--space-6);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: var(--space-3);
+            margin-bottom: var(--space-6);
+            flex-wrap: wrap;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            padding: var(--space-6);
+            border-radius: var(--radius-xl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 0.6s ease;
+        }
+
+        .metric-card:hover::before {
+            transform: scale(1);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-6);
+        }
+
+        .section-title {
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .data-table-wrapper {
+            background: var(--surface-primary);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .table-header {
+            background: var(--gray-50);
+            padding: var(--space-4) var(--space-6);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .table-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--gray-900);
         }
     </style>
 </head>
 <body>
-    <div class="main-container">
-        <!-- Header Section -->
-        <div class="header-section">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-                <h1 class="header-title">Weight & Diet Manager</h1>
-                <div class="d-flex header-controls mt-3 mt-md-0">
-                    <span class="me-3 d-none d-md-block align-self-center text-white-50">
-                        <strong>User:</strong> <span id="user-info"></span>
-                    </span>
-                    <a href="https://chatgpt.com/c/6838c8dd-40c4-800d-a83f-7efda3d18445" target="_blank" class="btn btn-success btn-sm me-2">
-                        <i class="fas fa-calculator me-2"></i>Calculate Daily
-                    </a>
-                    <button id="export-data-btn" class="btn btn-outline-light btn-sm me-2">
-                        <i class="fas fa-download me-1"></i>Export
-                    </button>
-                    <button id="import-data-btn" class="btn btn-outline-light btn-sm me-2">
-                        <i class="fas fa-upload me-1"></i>Import
-                    </button>
-                    <input type="file" id="import-file-input" accept=".json" style="display: none;">
-                    <button id="settings-btn" class="btn btn-outline-light btn-sm me-2">
-                        <i class="fas fa-cog me-1"></i>Settings
-                    </button>
-                    <button id="logout-btn" class="btn btn-outline-light btn-sm">
-                        <i class="fas fa-sign-out-alt me-1"></i>Logout
-                    </button>
-                </div>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="#" class="logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <div class="logo-text">Weight Manager</div>
+                        <div class="logo-subtitle">Professional</div>
+                    </div>
+                </a>
             </div>
-        </div>
 
-        <!-- Navigation Tabs -->
-        <div class="section-nav mb-4">
-            <ul class="nav nav-tabs nav-fill" id="sectionTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="nutrition-tab" data-bs-toggle="tab" data-bs-target="#nutrition-section" type="button" role="tab">
-                        <i class="fas fa-utensils me-2"></i>Nutrition Tracking
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="workouts-tab" data-bs-toggle="tab" data-bs-target="#workouts-section" type="button" role="tab">
-                        <i class="fas fa-dumbbell me-2"></i>Workout Tracking
-                    </button>
-                </li>
-            </ul>
-        </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Analytics</div>
+                    <a href="#" class="nav-item active" data-section="nutrition">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Nutrition Overview</span>
+                    </a>
+                    <a href="#" class="nav-item" data-section="workouts">
+                        <i class="fas fa-dumbbell"></i>
+                        <span>Workout Analytics</span>
+                    </a>
+                </div>
 
-        <!-- Tab Content -->
-        <div class="tab-content" id="sectionTabContent">
-            <!-- Nutrition Section -->
-            <div class="tab-pane fade show active" id="nutrition-section" role="tabpanel">
-                <!-- Stats Grid -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="current-weight">--</div>
-                        <div class="stat-label">Current Weight (kg)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="weight-change">--</div>
-                        <div class="stat-label">Weight Change</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="avg-calories">--</div>
-                        <div class="stat-label">Avg Daily Calories</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="avg-protein">--</div>
-                        <div class="stat-label">Avg Daily Protein</div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Data Management</div>
+                    <a href="#" class="nav-item" data-section="data-entry">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Log Entry</span>
+                    </a>
+                    <a href="#" class="nav-item" data-section="history">
+                        <i class="fas fa-history"></i>
+                        <span>History</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Tools</div>
+                    <a href="https://chatgpt.com/c/6838c8dd-40c4-800d-a83f-7efda3d18445" target="_blank" class="nav-item">
+                        <i class="fas fa-calculator"></i>
+                        <span>Macro Calculator</span>
+                    </a>
+                    <a href="#" class="nav-item" id="export-data-nav">
+                        <i class="fas fa-download"></i>
+                        <span>Export Data</span>
+                    </a>
+                    <a href="#" class="nav-item" id="import-data-nav">
+                        <i class="fas fa-upload"></i>
+                        <span>Import Data</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Account</div>
+                    <a href="#" class="nav-item" id="settings-nav">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </a>
+                    <a href="#" class="nav-item" id="logout-nav">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Sign Out</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-toggle" id="mobile-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="breadcrumb">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
                     </div>
                 </div>
-                
-                <div class="row g-4">
-                    <!-- Data Entry Form -->
-                    <div class="col-lg-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Log New Entry</h5>
+                <div class="topbar-right">
+                    <div class="dropdown">
+                        <div class="user-menu" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="user-avatar">
+                                <span id="user-initials">A</span>
                             </div>
-                            <div class="card-body">
-                                <form id="weight-form">
-                                    <div class="row g-3">
-                                        <div class="col-12">
-                                            <label for="logDate" class="form-label">Date</label>
-                                            <input type="date" class="form-control" id="logDate" required>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="logWeight" class="form-label">Weight (kg)</label>
-                                            <input type="number" class="form-control" id="logWeight" step="0.1" placeholder="75.5">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="logCalories" class="form-label">Calories</label>
-                                            <input type="number" class="form-control" id="logCalories" step="0.1" placeholder="2000">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="logProtein" class="form-label">Protein (g)</label>
-                                            <input type="number" class="form-control" id="logProtein" step="0.1" placeholder="150">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="logCarbs" class="form-label">Carbs (g)</label>
-                                            <input type="number" class="form-control" id="logCarbs" step="0.1" placeholder="200">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="logFat" class="form-label">Fat (g)</label>
-                                            <input type="number" class="form-control" id="logFat" step="0.1" placeholder="70">
-                                        </div>
-                                        <div class="col-12">
-                                            <label for="logMiscInfo" class="form-label">Additional Notes</label>
-                                            <textarea class="form-control" id="logMiscInfo" rows="3" placeholder="Optional notes about your day..."></textarea>
-                                        </div>
-                                        <div class="col-12">
-                                            <button type="submit" class="btn btn-primary w-100">
-                                                <i class="fas fa-save me-2"></i>Save Entry
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.875rem;" id="user-display-name">Administrator</div>
+                                <div style="font-size: 0.75rem; color: var(--gray-500);" id="user-email-display"></div>
                             </div>
+                            <i class="fas fa-chevron-down ms-2" style="font-size: 0.75rem; color: var(--gray-400);"></i>
+                        </div>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><h6 class="dropdown-header">Account</h6></li>
+                            <li><a class="dropdown-item" href="#" id="settings-dropdown">
+                                <i class="fas fa-cog me-2"></i>Settings
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" id="logout-dropdown">
+                                <i class="fas fa-sign-out-alt me-2"></i>Sign Out
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Nutrition Section -->
+                <section id="nutrition-content" class="content-section">
+                    <div class="section-header">
+                        <h1 class="section-title">Nutrition Analytics</h1>
+                        <div class="quick-actions">
+                            <button class="btn btn-primary" onclick="showDataEntry()">
+                                <i class="fas fa-plus"></i>
+                                New Entry
+                            </button>
                         </div>
                     </div>
-                    
-                    <!-- Charts Section -->
-                    <div class="col-lg-6">
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Weight Progress</h5>
-                            </div>
-                            <div class="card-body p-0">
-                                <div class="chart-container">
-                                    <canvas id="weightChart"></canvas>
+
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon">
+                                    <i class="fas fa-weight"></i>
                                 </div>
+                            </div>
+                            <div class="stat-value" id="current-weight">--</div>
+                            <div class="stat-label">Current Weight (kg)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="weight-change">--</div>
+                            <div class="stat-label">Weight Change</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon">
+                                    <i class="fas fa-fire"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="avg-calories">--</div>
+                            <div class="stat-label">Avg Daily Calories</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon">
+                                    <i class="fas fa-drumstick-bite"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="avg-protein">--</div>
+                            <div class="stat-label">Avg Daily Protein</div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="data-grid">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Weight Progress</h3>
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="weightChart"></canvas>
                             </div>
                         </div>
                         
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Nutrition Overview</h5>
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Nutrition Breakdown</h3>
                             </div>
-                            <div class="card-body p-0">
-                                <div class="chart-container">
-                                    <canvas id="nutritionChart"></canvas>
-                                </div>
+                            <div class="chart-wrapper">
+                                <canvas id="nutritionChart"></canvas>
                             </div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Data Log Section -->
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-table me-2"></i>Nutrition Log</h5>
+                </section>
+
+                <!-- Data Entry Section -->
+                <section id="data-entry-content" class="content-section" style="display: none;">
+                    <div class="section-header">
+                        <h1 class="section-title">Log New Entry</h1>
                     </div>
-                    <div class="card-body">
+
+                    <div class="card">
+                        <div class="card-body">
+                            <form id="weight-form">
+                                <div class="data-grid">
+                                    <div>
+                                        <div class="form-group">
+                                            <label for="logDate" class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="logDate" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="logWeight" class="form-label">Weight (kg)</label>
+                                            <input type="number" class="form-control" id="logWeight" step="0.1" placeholder="75.5">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="logCalories" class="form-label">Calories</label>
+                                            <input type="number" class="form-control" id="logCalories" step="0.1" placeholder="2000">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="form-group">
+                                            <label for="logProtein" class="form-label">Protein (g)</label>
+                                            <input type="number" class="form-control" id="logProtein" step="0.1" placeholder="150">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="logCarbs" class="form-label">Carbs (g)</label>
+                                            <input type="number" class="form-control" id="logCarbs" step="0.1" placeholder="200">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="logFat" class="form-label">Fat (g)</label>
+                                            <input type="number" class="form-control" id="logFat" step="0.1" placeholder="70">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="logMiscInfo" class="form-label">Additional Notes</label>
+                                    <textarea class="form-control" id="logMiscInfo" rows="3" placeholder="Optional notes about your day..."></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save"></i>
+                                    Save Entry
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- History Section -->
+                <section id="history-content" class="content-section" style="display: none;">
+                    <div class="section-header">
+                        <h1 class="section-title">Entry History</h1>
+                    </div>
+
+                    <div class="data-table-wrapper">
+                        <div class="table-header">
+                            <h3 class="table-title">Nutrition Log</h3>
+                        </div>
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0">
+                            <table class="table">
                                 <thead>
                                     <tr>
                                         <th>Date</th>
@@ -823,43 +1095,42 @@
                             </table>
                         </div>
                     </div>
-                </div>
-            </div>
+                </section>
 
-            <!-- Workouts Section -->
-            <div class="tab-pane fade" id="workouts-section" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-dumbbell me-2"></i>Workout Tracking</h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Controls -->
-                        <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                <!-- Workouts Section -->
+                <section id="workouts-content" class="content-section" style="display: none;">
+                    <div class="section-header">
+                        <h1 class="section-title">Workout Analytics</h1>
+                        <div class="quick-actions">
                             <button id="import-workout-btn" class="btn btn-success">
-                                <i class="fas fa-file-import me-2"></i>Import Hevy CSV
+                                <i class="fas fa-file-import"></i>
+                                Import Hevy CSV
                             </button>
-                            <input type="file" id="workout-file-input" accept=".csv" style="display: none;">
                             <button id="delete-selected-workouts" class="btn btn-danger" disabled>
-                                <i class="fas fa-trash me-2"></i>Delete Selected
+                                <i class="fas fa-trash"></i>
+                                Delete Selected
                             </button>
-                            <span class="text-muted">Upload your Hevy export CSV file</span>
                         </div>
-                        
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h6 class="mb-0">Recent Workouts</h6>
-                            </div>
-                            <div class="card-body p-0">
-                                <div class="chart-container">
-                                    <canvas id="workoutChart"></canvas>
-                                </div>
-                            </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Workout Frequency</h3>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="workoutChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="data-table-wrapper">
+                        <div class="table-header">
+                            <h3 class="table-title">Workout History</h3>
                         </div>
                         
                         <!-- Desktop Table -->
                         <div class="workout-table-container d-none d-md-block">
                             <div class="table-responsive">
-                                <table class="table table-hover mb-0">
+                                <table class="table">
                                     <thead>
                                         <tr>
                                             <th width="50">
@@ -884,7 +1155,7 @@
                         <!-- Mobile Cards -->
                         <div class="workout-cards-container d-md-none">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <small class="text-muted">Tap to select workouts</small>
+                                <small style="color: var(--gray-500);">Tap to select workouts</small>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="select-all-workouts-mobile">
                                     <label class="form-check-label" for="select-all-workouts-mobile">
@@ -897,10 +1168,14 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
             </div>
-        </div>
+        </main>
     </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="import-file-input" accept=".json" style="display: none;">
+    <input type="file" id="workout-file-input" accept=".csv" style="display: none;">
 
     <!-- Settings Modal -->
     <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">

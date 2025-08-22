@@ -11,23 +11,183 @@ let workoutChart;
 // Mobile workout selection
 let selectedWorkouts = new Set();
 
+// Navigation state
+let currentSection = 'nutrition';
+
 // DOM elements
 const weightForm = document.getElementById('weight-form');
 const dataTableBody = document.getElementById('data-table-body');
-const userInfoElement = document.getElementById('user-info');
-const logoutBtn = document.getElementById('logout-btn');
-const exportDataBtn = document.getElementById('export-data-btn');
-const importDataBtn = document.getElementById('import-data-btn');
+const exportDataBtn = document.getElementById('export-data-nav');
+const importDataBtn = document.getElementById('import-data-nav');
 const importFileInput = document.getElementById('import-file-input');
 const importWorkoutBtn = document.getElementById('import-workout-btn');
 const workoutFileInput = document.getElementById('workout-file-input');
 const workoutTableBody = document.getElementById('workout-table-body');
 const deleteSelectedWorkoutsBtn = document.getElementById('delete-selected-workouts');
 const selectAllWorkoutsCheckbox = document.getElementById('select-all-workouts');
-const settingsBtn = document.getElementById('settings-btn');
+const settingsBtn = document.getElementById('settings-nav');
 const changePasswordForm = document.getElementById('change-password-form');
 const changeEmailForm = document.getElementById('change-email-form');
 const settingsUserEmail = document.getElementById('settings-user-email');
+
+// API helper function
+async function apiCall(endpoint, options = {}) {
+    const config = {
+        headers: {
+            'Content-Type': 'application/json',
+            ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+        },
+        ...options
+    };
+
+    const response = await fetch(API_BASE + endpoint, config);
+    
+    if (!response.ok) {
+        if (response.status === 401) {
+            // Token expired, redirect to login
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            window.location.href = 'login.html';
+            return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+}
+
+// Navigation functionality
+function initNavigation() {
+    const navItems = document.querySelectorAll('.nav-item[data-section]');
+    const sections = document.querySelectorAll('.content-section');
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const sectionName = item.dataset.section;
+            switchSection(sectionName);
+            
+            // Update nav active states
+            navItems.forEach(nav => nav.classList.remove('active'));
+            item.classList.add('active');
+        });
+    });
+}
+
+function switchSection(sectionName) {
+    const sections = document.querySelectorAll('.content-section');
+    
+    // Hide all sections
+    sections.forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // Show target section
+    const targetSection = document.getElementById(`${sectionName}-content`);
+    if (targetSection) {
+        targetSection.style.display = 'block';
+        currentSection = sectionName;
+        
+        // Update breadcrumb
+        updateBreadcrumb(sectionName);
+        
+        // Load section-specific data
+        loadSectionData(sectionName);
+    }
+}
+
+function updateBreadcrumb(sectionName) {
+    const breadcrumb = document.querySelector('.breadcrumb span');
+    const sectionTitles = {
+        'nutrition': 'Nutrition Analytics',
+        'workouts': 'Workout Analytics',
+        'data-entry': 'Log Entry',
+        'history': 'History'
+    };
+    
+    if (breadcrumb) {
+        breadcrumb.textContent = sectionTitles[sectionName] || 'Dashboard';
+    }
+}
+
+function loadSectionData(sectionName) {
+    switch(sectionName) {
+        case 'nutrition':
+            loadData();
+            updateStats();
+            break;
+        case 'workouts':
+            loadWorkoutData();
+            break;
+        case 'history':
+            loadData();
+            break;
+    }
+}
+
+// Global function to show data entry section
+window.showDataEntry = function() {
+    switchSection('data-entry');
+    // Update nav
+    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+    document.querySelector('.nav-item[data-section="data-entry"]').classList.add('active');
+};
+
+// Mobile menu toggle
+function initMobileMenu() {
+    const mobileToggle = document.getElementById('mobile-toggle');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (mobileToggle && sidebar) {
+        mobileToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('mobile-open');
+        });
+    }
+    
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 1024 && 
+            sidebar &&
+            !sidebar.contains(e.target) && 
+            !e.target.closest('#mobile-toggle') &&
+            sidebar.classList.contains('mobile-open')) {
+            sidebar.classList.remove('mobile-open');
+        }
+    });
+    
+    // Close sidebar when clicking on a nav item on mobile
+    if (sidebar) {
+        sidebar.addEventListener('click', (e) => {
+            if (window.innerWidth <= 1024 && e.target.closest('.nav-item')) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+    }
+}
+
+// User menu functionality
+function initUserMenu() {
+    const settingsDropdown = document.getElementById('settings-dropdown');
+    const logoutDropdown = document.getElementById('logout-dropdown');
+    
+    if (settingsDropdown) {
+        settingsDropdown.addEventListener('click', (e) => {
+            e.preventDefault();
+            const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));
+            settingsModal.show();
+        });
+    }
+    
+    if (logoutDropdown) {
+        logoutDropdown.addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            window.location.href = 'login.html';
+        });
+    }
+}
 
 // API helper function
 async function apiCall(endpoint, options = {}) {
@@ -64,9 +224,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     
+    // Initialize navigation and mobile menu
+    initNavigation();
+    initMobileMenu();
+    initUserMenu();
+    
     // Display user info
-    if (userInfoElement) {
-        userInfoElement.textContent = currentUser.email;
+    const userDisplayName = document.getElementById('user-display-name');
+    const userEmailDisplay = document.getElementById('user-email-display');
+    const userInitials = document.getElementById('user-initials');
+    
+    if (userDisplayName && userEmailDisplay && userInitials) {
+        userEmailDisplay.textContent = currentUser.email;
+        userDisplayName.textContent = currentUser.email.split('@')[0];
+        userInitials.textContent = currentUser.email.charAt(0).toUpperCase();
     }
     
     // Set user email in settings modal
@@ -77,7 +248,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Set default date to current date (no time)
     const now = new Date();
     const dateString = now.toISOString().split('T')[0];
-    document.getElementById('logDate').value = dateString;
+    const logDateElement = document.getElementById('logDate');
+    if (logDateElement) {
+        logDateElement.value = dateString;
+    }
     
     // Initialize mobile workout controls
     initMobileWorkoutControls();
@@ -87,9 +261,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateStats();
 });
 
-// Logout handler
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
+// Logout handler (keep for backward compatibility)
+const logoutNav = document.getElementById('logout-nav');
+if (logoutNav) {
+    logoutNav.addEventListener('click', () => {
         localStorage.removeItem('authToken');
         localStorage.removeItem('currentUser');
         window.location.href = 'login.html';

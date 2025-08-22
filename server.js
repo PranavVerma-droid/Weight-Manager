@@ -175,7 +175,6 @@ app.get('/api/workouts', authenticateToken, (req, res) => {
             console.error('Database error:', err);
             return res.status(500).json({ error: 'Database error' });
         }
-        console.log('Sample workout from DB:', rows[0]); // Debug log to see structure
         res.json(rows);
     });
 });
@@ -217,7 +216,6 @@ app.get('/api/workouts/:id', authenticateToken, (req, res) => {
         if (!row) {
             return res.status(404).json({ error: 'Workout not found' });
         }
-        console.log('Workout data from DB:', row); // Debug log
         res.json(row);
     });
 });
