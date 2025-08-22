@@ -825,6 +825,148 @@
             font-weight: 600;
             color: var(--gray-900);
         }
+
+        /* Goal Cards */
+        .goal-card {
+            background: var(--surface-primary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            margin-bottom: var(--space-4);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .goal-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+        }
+
+        .goal-card.completed::before {
+            background: linear-gradient(90deg, var(--success), #22c55e);
+        }
+
+        .goal-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-4);
+        }
+
+        .goal-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--gray-900);
+            margin: 0;
+        }
+
+        .goal-type {
+            font-size: var(--font-size-xs);
+            font-weight: 500;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .goal-status {
+            padding: var(--space-1) var(--space-3);
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .goal-status.active {
+            background: rgba(37, 99, 235, 0.1);
+            color: var(--primary);
+        }
+
+        .goal-status.completed {
+            background: rgba(5, 150, 105, 0.1);
+            color: var(--success);
+        }
+
+        .goal-progress {
+            margin: var(--space-4) 0;
+        }
+
+        .goal-progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--space-2);
+            font-size: var(--font-size-sm);
+            color: var(--gray-600);
+        }
+
+        .goal-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--gray-200);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .goal-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            border-radius: var(--radius-lg);
+            transition: width 0.3s ease;
+        }
+
+        .goal-values {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+
+        .goal-value {
+            text-align: center;
+        }
+
+        .goal-value-number {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            display: block;
+        }
+
+        .goal-value-label {
+            font-size: var(--font-size-xs);
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .goal-actions {
+            display: flex;
+            gap: var(--space-2);
+            margin-top: var(--space-4);
+        }
+
+        .no-goals {
+            text-align: center;
+            padding: var(--space-8);
+            color: var(--gray-500);
+        }
+
+        .no-goals i {
+            font-size: 3rem;
+            margin-bottom: var(--space-4);
+            color: var(--gray-400);
+        }
     </style>
 </head>
 <body>
@@ -853,6 +995,10 @@
                     <a href="#" class="nav-item" data-section="workouts">
                         <i class="fas fa-dumbbell"></i>
                         <span>Workout Analytics</span>
+                    </a>
+                    <a href="#" class="nav-item" data-section="goals">
+                        <i class="fas fa-bullseye"></i>
+                        <span>Goals & Progress</span>
                     </a>
                 </div>
 
@@ -946,7 +1092,7 @@
                         <div class="quick-actions">
                             <button class="btn btn-primary" onclick="showDataEntry()">
                                 <i class="fas fa-plus"></i>
-                                New Entry
+                                Log New Entry
                             </button>
                         </div>
                     </div>
@@ -995,7 +1141,7 @@
                     <div class="data-grid">
                         <div class="chart-container">
                             <div class="chart-header">
-                                <h3 class="chart-title">Weight Progress</h3>
+                                <h3 class="chart-title">Weight Tracking</h3>
                             </div>
                             <div class="chart-wrapper">
                                 <canvas id="weightChart"></canvas>
@@ -1004,7 +1150,7 @@
                         
                         <div class="chart-container">
                             <div class="chart-header">
-                                <h3 class="chart-title">Nutrition Breakdown</h3>
+                                <h3 class="chart-title">Nutrition Overview (Last 7 Days)</h3>
                             </div>
                             <div class="chart-wrapper">
                                 <canvas id="nutritionChart"></canvas>
@@ -1030,28 +1176,37 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="logWeight" class="form-label">Weight (kg)</label>
-                                            <input type="number" class="form-control" id="logWeight" step="0.1" placeholder="75.5">
+                                            <input type="number" class="form-control" id="logWeight" step="0.1" placeholder="Optional">
                                         </div>
                                         <div class="form-group">
-                                            <label for="logCalories" class="form-label">Calories</label>
-                                            <input type="number" class="form-control" id="logCalories" step="0.1" placeholder="2000">
+                                            <label for="logProtein" class="form-label">Protein (g)</label>
+                                            <input type="number" class="form-control" id="logProtein" step="0.1" value="0">
                                         </div>
                                     </div>
                                     <div>
                                         <div class="form-group">
-                                            <label for="logProtein" class="form-label">Protein (g)</label>
-                                            <input type="number" class="form-control" id="logProtein" step="0.1" placeholder="150">
+                                            <label for="logCalories" class="form-label">Calories</label>
+                                            <input type="number" class="form-control" id="logCalories" step="0.1" value="0">
                                         </div>
                                         <div class="form-group">
                                             <label for="logCarbs" class="form-label">Carbs (g)</label>
-                                            <input type="number" class="form-control" id="logCarbs" step="0.1" placeholder="200">
+                                            <input type="number" class="form-control" id="logCarbs" step="0.1" value="0">
                                         </div>
                                         <div class="form-group">
                                             <label for="logFat" class="form-label">Fat (g)</label>
-                                            <input type="number" class="form-control" id="logFat" step="0.1" placeholder="70">
+                                            <input type="number" class="form-control" id="logFat" step="0.1" value="0">
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <!-- Goal Progress Display -->
+                                <div id="goal-progress-display" style="display: none; margin-bottom: 20px;">
+                                    <div class="alert alert-info">
+                                        <h6><i class="fas fa-bullseye me-2"></i>Daily Goal Progress</h6>
+                                        <div id="goal-progress-content"></div>
+                                    </div>
+                                </div>
+                                
                                 <div class="form-group">
                                     <label for="logMiscInfo" class="form-label">Additional Notes</label>
                                     <textarea class="form-control" id="logMiscInfo" rows="3" placeholder="Optional notes about your day..."></textarea>
@@ -1093,6 +1248,59 @@
                                     <!-- Data will be inserted here dynamically -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Goals Section -->
+                <section id="goals-content" class="content-section" style="display: none;">
+                    <div class="section-header">
+                        <h1 class="section-title">Goals & Progress</h1>
+                        <div class="quick-actions">
+                            <button class="btn btn-primary" id="create-goal-btn">
+                                <i class="fas fa-plus"></i>
+                                Create Goal
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Goals -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-bullseye"></i>
+                                Active Goals
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="active-goals-container">
+                                <!-- Active goals will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Goals Chart -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Progress Tracking</h3>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="goalsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Completed Goals -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-trophy"></i>
+                                Completed Goals
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="completed-goals-container">
+                                <!-- Completed goals will be inserted here -->
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -1280,6 +1488,115 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="saveEditBtn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Goal Modal -->
+    <div class="modal fade" id="createGoalModal" tabindex="-1" aria-labelledby="createGoalModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createGoalModalLabel">Create New Goal</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="create-goal-form">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="goalType" class="form-label">Goal Type</label>
+                                    <select class="form-control" id="goalType" required>
+                                        <option value="">Select goal type...</option>
+                                        <option value="weight_loss">Weight Loss</option>
+                                        <option value="weight_gain">Weight Gain</option>
+                                        <option value="maintenance">Weight Maintenance</option>
+                                        <option value="calorie">Daily Calorie Target</option>
+                                        <option value="protein">Daily Protein Target</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="goalTitle" class="form-label">Goal Title</label>
+                                    <input type="text" class="form-control" id="goalTitle" placeholder="e.g., Lose 10kg for summer" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3" id="currentValueGroup">
+                                    <label for="currentValue" class="form-label">Current Value</label>
+                                    <input type="number" class="form-control" id="currentValue" step="0.1" required>
+                                    <small class="form-text text-muted" id="currentValueHelper">Current weight/intake</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3" id="targetValueGroup">
+                                    <label for="targetValue" class="form-label">Target Value</label>
+                                    <input type="number" class="form-control" id="targetValue" step="0.1" required>
+                                    <small class="form-text text-muted" id="targetValueHelper">Target weight/intake</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3" id="targetDateGroup">
+                                    <label for="targetDate" class="form-label">Target Date</label>
+                                    <input type="date" class="form-control" id="targetDate" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3" id="dailyLimitGroup" style="display: none;">
+                                    <label for="dailyLimit" class="form-label">Daily Limit</label>
+                                    <input type="number" class="form-control" id="dailyLimit" step="0.1">
+                                    <small class="form-text text-muted" id="dailyLimitHelper">Daily limit value</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="goalNotes" class="form-label">Notes (Optional)</label>
+                            <textarea class="form-control" id="goalNotes" rows="3" placeholder="Additional motivation or details about your goal..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveGoalBtn">Create Goal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Goal Progress Modal -->
+    <div class="modal fade" id="updateProgressModal" tabindex="-1" aria-labelledby="updateProgressModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="updateProgressModalLabel">Update Progress</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="update-progress-form">
+                        <input type="hidden" id="progressGoalId">
+                        <div class="mb-3">
+                            <label for="progressValue" class="form-label">Current Value</label>
+                            <input type="number" class="form-control" id="progressValue" step="0.1" required>
+                            <small class="form-text text-muted" id="progressValueHelper">Enter your current progress</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="progressNotes" class="form-label">Notes (Optional)</label>
+                            <textarea class="form-control" id="progressNotes" rows="2" placeholder="How are you feeling about your progress?"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveProgressBtn">Update Progress</button>
                 </div>
             </div>
         </div>

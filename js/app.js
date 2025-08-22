@@ -7,9 +7,13 @@ let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
 let weightChart;
 let nutritionChart;
 let workoutChart;
+let goalsChart;
 
 // Mobile workout selection
 let selectedWorkouts = new Set();
+
+// Goals data
+let goalsData = [];
 
 // Navigation state
 let currentSection = 'nutrition';
@@ -101,6 +105,7 @@ function updateBreadcrumb(sectionName) {
     const sectionTitles = {
         'nutrition': 'Nutrition Analytics',
         'workouts': 'Workout Analytics',
+        'goals': 'Goals & Progress',
         'data-entry': 'Log Entry',
         'history': 'History'
     };
@@ -118,6 +123,12 @@ function loadSectionData(sectionName) {
             break;
         case 'workouts':
             loadWorkoutData();
+            break;
+        case 'goals':
+            loadGoalsData();
+            break;
+        case 'data-entry':
+            updateGoalProgressDisplay();
             break;
         case 'history':
             loadData();
@@ -189,6 +200,45 @@ function initUserMenu() {
     }
 }
 
+// Goals functionality
+function initGoalsEvents() {
+    const createGoalBtn = document.getElementById('create-goal-btn');
+    const saveGoalBtn = document.getElementById('saveGoalBtn');
+    const saveProgressBtn = document.getElementById('saveProgressBtn');
+    const goalTypeSelect = document.getElementById('goalType');
+    
+    if (createGoalBtn) {
+        createGoalBtn.addEventListener('click', () => {
+            const createGoalModal = new bootstrap.Modal(document.getElementById('createGoalModal'));
+            
+            // Prefill current weight if creating weight-related goal
+            if (currentSection === 'nutrition' || currentSection === 'goals') {
+                prefillCurrentValues();
+            }
+            
+            createGoalModal.show();
+        });
+    }
+    
+    if (goalTypeSelect) {
+        goalTypeSelect.addEventListener('change', (e) => {
+            updateGoalFormFields();
+            // Auto-prefill current values when goal type changes
+            if (e.target.value) {
+                prefillCurrentValues();
+            }
+        });
+    }
+    
+    if (saveGoalBtn) {
+        saveGoalBtn.addEventListener('click', createGoal);
+    }
+    
+    if (saveProgressBtn) {
+        saveProgressBtn.addEventListener('click', updateGoalProgress);
+    }
+}
+
 // API helper function
 async function apiCall(endpoint, options = {}) {
     const config = {
@@ -228,6 +278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initNavigation();
     initMobileMenu();
     initUserMenu();
+    initGoalsEvents();
     
     // Display user info
     const userDisplayName = document.getElementById('user-display-name');
@@ -253,11 +304,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         logDateElement.value = dateString;
     }
     
+    // Set default values for nutrition inputs
+    const logProteinElement = document.getElementById('logProtein');
+    const logCaloriesElement = document.getElementById('logCalories');
+    const logCarbsElement = document.getElementById('logCarbs');
+    const logFatElement = document.getElementById('logFat');
+    
+    if (logProteinElement) logProteinElement.value = '0';
+    if (logCaloriesElement) logCaloriesElement.value = '0';
+    if (logCarbsElement) logCarbsElement.value = '0';
+    if (logFatElement) logFatElement.value = '0';
+    
     // Initialize mobile workout controls
     initMobileWorkoutControls();
     
+    // Add event listeners for goal progress display
+    const caloriesInput = document.getElementById('logCalories');
+    const proteinInput = document.getElementById('logProtein');
+    if (caloriesInput && proteinInput) {
+        caloriesInput.addEventListener('input', updateGoalProgressDisplay);
+        proteinInput.addEventListener('input', updateGoalProgressDisplay);
+    }
+    
     await loadData();
     await loadWorkoutData();
+    await loadGoalsData();
     updateStats();
 });
 
@@ -416,13 +487,27 @@ weightForm.addEventListener('submit', async (e) => {
             body: JSON.stringify(formData)
         });
         
+        // Update weight goals if weight was logged
+        if (formData.log_weight) {
+            await updateWeightGoals(formData.log_weight);
+        }
+        
         // Reset form
         weightForm.reset();
+        
+        // Set default values for numeric inputs
+        document.getElementById('logProtein').value = '0';
+        document.getElementById('logCalories').value = '0';
+        document.getElementById('logCarbs').value = '0';
+        document.getElementById('logFat').value = '0';
         
         // Set default date to current date again
         const now = new Date();
         const dateString = now.toISOString().split('T')[0];
         document.getElementById('logDate').value = dateString;
+        
+        // Reset goal progress display
+        updateGoalProgressDisplay();
         
         // Reload data
         await loadData();
@@ -1187,7 +1272,7 @@ async function viewWorkoutDetails(id) {
         let detailsHTML = `<h4>${workout.title}</h4>`;
         detailsHTML += `<p><strong>Date:</strong> ${new Date(workout.workout_date).toLocaleDateString()}</p>`;
         detailsHTML += `<p><strong>Duration:</strong> ${workout.duration_minutes} minutes</p>`;
-        detailsHTML += `<p><strong>Total Volume:</strong> ${totalWorkoutVolume > 0 ? `${totalWorkoutVolume.toFixed(1)} kg` : 'N/A'}</p>`;
+        detailsHTML += `<p><strong>Total Volume:</strong> ${totalWorkoutVolume > 0 ? `${totalWorkoutVolume.toFixed(1)}` : 'N/A'}</p>`;
         
         // Add workout description if it exists
         if (workout.description && workout.description.trim()) {
@@ -1213,7 +1298,7 @@ async function viewWorkoutDetails(id) {
             detailsHTML += `<div class="exercise-section" style="margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px;">`;
             detailsHTML += `<h6 style="color: #6366f1; margin-bottom: 10px;">${exercise.title}`;
             if (exerciseVolume > 0) {
-                detailsHTML += ` <span style="font-size: 0.8em; color: #666;">(Total Volume: ${exerciseVolume.toFixed(1)} kg)</span>`;
+                detailsHTML += ` <span style="font-size: 0.8em; color: #666;">(Total Volume: ${exerciseVolume.toFixed(1)})</span>`;
             }
             detailsHTML += `</h6>`;
             
@@ -1386,96 +1471,602 @@ function renderWorkoutChart(items) {
     });
 }
 
-// Make functions globally available
-window.editEntry = editEntry;
-window.deleteEntry = deleteEntry;
-window.viewWorkoutDetails = viewWorkoutDetails;
-window.deleteWorkout = deleteWorkout;
-
-// Mobile Workout Functions
-function createWorkoutCard(workout) {
-    const card = document.createElement('div');
-    card.className = 'workout-card';
-    card.dataset.workoutId = workout.id;
-    
-    const isSelected = selectedWorkouts.has(workout.id);
-    if (isSelected) {
-        card.classList.add('selected');
+// Goals API functions
+async function loadGoalsData() {
+    try {
+        const goals = await apiCall('/goals');
+        goalsData = goals;
+        displayGoals(goals);
+        renderGoalsChart(goals);
+        
+        // Update goal progress display in data entry form if visible
+        updateGoalProgressDisplay();
+    } catch (error) {
+        console.error('Error loading goals:', error);
     }
+}
+
+async function createGoal() {
+    try {
+        const goalType = document.getElementById('goalType').value;
+        
+        console.log('Creating goal with type:', goalType);
+        
+        // Check for existing calorie/protein goals
+        if (goalType === 'calorie' || goalType === 'protein') {
+            const existingGoal = goalsData.find(g => g.goal_type === goalType && g.status === 'active');
+            if (existingGoal) {
+                alert(`You already have an active ${goalType === 'calorie' ? 'calorie' : 'protein'} goal. Please delete it first if you want to create a new one.`);
+                return;
+            }
+        }
+        
+        let goalData;
+        
+        if (goalType === 'calorie' || goalType === 'protein') {
+            // Daily limit goals
+            const dailyLimitValue = document.getElementById('dailyLimit').value;
+            const titleValue = document.getElementById('goalTitle').value;
+            const notesValue = document.getElementById('goalNotes').value;
+            
+            console.log('Daily limit goal data:', { dailyLimitValue, titleValue, notesValue });
+            
+            if (!dailyLimitValue || !titleValue) {
+                alert('Please fill in the title and daily limit');
+                return;
+            }
+            
+            goalData = {
+                goal_type: goalType,
+                title: titleValue,
+                daily_limit: parseFloat(dailyLimitValue),
+                notes: notesValue || ''
+            };
+        } else {
+            // Weight-related goals
+            const currentValue = document.getElementById('currentValue').value;
+            const targetValue = document.getElementById('targetValue').value;
+            const targetDate = document.getElementById('targetDate').value;
+            const titleValue = document.getElementById('goalTitle').value;
+            const notesValue = document.getElementById('goalNotes').value;
+            
+            console.log('Weight goal data:', { currentValue, targetValue, targetDate, titleValue, notesValue });
+            
+            if (!currentValue || !targetValue || !targetDate || !titleValue) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            goalData = {
+                goal_type: goalType,
+                title: titleValue,
+                current_value: parseFloat(currentValue),
+                target_value: parseFloat(targetValue),
+                target_date: targetDate,
+                notes: notesValue || ''
+            };
+        }
+        
+        console.log('Sending goal data:', goalData);
+
+        await apiCall('/goals', {
+            method: 'POST',
+            body: JSON.stringify(goalData)
+        });
+
+        // Hide modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('createGoalModal'));
+        modal.hide();
+
+        // Reset form
+        document.getElementById('create-goal-form').reset();
+        updateGoalFormFields(); // Reset form visibility
+
+        // Reload goals
+        await loadGoalsData();
+
+        alert('Goal created successfully!');
+    } catch (error) {
+        console.error('Error creating goal:', error);
+        alert('Error creating goal: ' + error.message);
+    }
+}
+
+async function updateGoalProgress() {
+    try {
+        const goalId = document.getElementById('progressGoalId').value;
+        const progressData = {
+            recorded_value: parseFloat(document.getElementById('progressValue').value),
+            notes: document.getElementById('progressNotes').value
+        };
+
+        await apiCall(`/goals/${goalId}/progress`, {
+            method: 'POST',
+            body: JSON.stringify(progressData)
+        });
+
+        // Hide modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('updateProgressModal'));
+        modal.hide();
+
+        // Reset form
+        document.getElementById('update-progress-form').reset();
+
+        // Reload goals
+        await loadGoalsData();
+
+        alert('Progress updated successfully!');
+    } catch (error) {
+        console.error('Error updating progress:', error);
+        alert('Error updating progress: ' + error.message);
+    }
+}
+
+// Display goals in the UI
+async function displayGoals(goals) {
+    const activeContainer = document.getElementById('active-goals-container');
+    const completedContainer = document.getElementById('completed-goals-container');
+
+    // Clear containers
+    activeContainer.innerHTML = '';
+    completedContainer.innerHTML = '';
+
+    const activeGoals = goals.filter(g => g.status === 'active');
+    const completedGoals = goals.filter(g => g.status === 'completed');
+
+    // Display active goals
+    if (activeGoals.length === 0) {
+        activeContainer.innerHTML = `
+            <div class="no-goals">
+                <i class="fas fa-target"></i>
+                <h5>No Active Goals</h5>
+                <p>Create your first goal to start tracking your progress!</p>
+            </div>
+        `;
+    } else {
+        for (const goal of activeGoals) {
+            const goalCard = await createGoalCard(goal);
+            activeContainer.appendChild(goalCard);
+        }
+    }
+
+    // Display completed goals
+    if (completedGoals.length === 0) {
+        completedContainer.innerHTML = `
+            <div class="no-goals">
+                <i class="fas fa-trophy"></i>
+                <h5>No Completed Goals</h5>
+                <p>Complete your first goal to see it here!</p>
+            </div>
+        `;
+    } else {
+        for (const goal of completedGoals) {
+            const goalCard = await createGoalCard(goal);
+            completedContainer.appendChild(goalCard);
+        }
+    }
+}
+
+async function createGoalCard(goal) {
+    const card = document.createElement('div');
+    card.className = `goal-card ${goal.status}`;
+
+    // Get current value based on goal type
+    const currentDisplayValue = await getCurrentValueForGoal(goal);
     
-    // Format description for display
-    const hasDescription = workout.description && workout.description.trim();
-    const descriptionHTML = hasDescription ? 
-        `<div class="workout-description">
-            <small class="text-muted">${workout.description}</small>
-        </div>` : '';
-    
+    // Calculate actual progress based on goal type
+    let progressPercentage = 0;
+    if (goal.status === 'completed') {
+        progressPercentage = 100;
+    } else {
+        progressPercentage = await calculateGoalProgressAsync(goal);
+    }
+
+    // Format goal type display
+    const goalTypeMap = {
+        'weight_loss': 'Weight Loss',
+        'weight_gain': 'Weight Gain',
+        'maintenance': 'Maintenance',
+        'calorie': 'Daily Calories',
+        'protein': 'Daily Protein'
+    };
+
+    // Determine unit
+    const unit = goal.goal_type.includes('weight') ? 'kg' : 
+                 goal.goal_type === 'protein' ? 'g' : '';
+
+    let valuesSection = '';
+    let progressSection = '';
+
+    if (goal.goal_type === 'calorie' || goal.goal_type === 'protein') {
+        // For daily limit goals, show different layout
+        valuesSection = `
+            <div class="goal-values">
+                <div class="goal-value">
+                    <span class="goal-value-number">${goal.daily_limit}${unit}</span>
+                    <span class="goal-value-label">Daily Limit</span>
+                </div>
+            </div>
+        `;
+        progressSection = `
+            <div class="alert alert-info">
+                <small><i class="fas fa-info-circle me-1"></i>Progress is automatically tracked with each nutrition log entry</small>
+            </div>
+        `;
+    } else {
+        // For weight-related goals
+        const targetDate = new Date(goal.target_date);
+        const today = new Date();
+        const daysRemaining = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
+
+        valuesSection = `
+            <div class="goal-values">
+                <div class="goal-value">
+                    <span class="goal-value-number">${currentDisplayValue}${unit}</span>
+                    <span class="goal-value-label">Current</span>
+                </div>
+                <div class="goal-value">
+                    <span class="goal-value-number">${goal.target_value}${unit}</span>
+                    <span class="goal-value-label">Target</span>
+                </div>
+                <div class="goal-value">
+                    <span class="goal-value-number">${daysRemaining > 0 ? daysRemaining : 0}</span>
+                    <span class="goal-value-label">Days Left</span>
+                </div>
+            </div>
+        `;
+        progressSection = `
+            <div class="goal-progress">
+                <div class="goal-progress-label">
+                    <span>Progress</span>
+                    <span>${progressPercentage.toFixed(1)}%</span>
+                </div>
+                <div class="goal-progress-bar">
+                    <div class="goal-progress-fill" style="width: ${progressPercentage}%"></div>
+                </div>
+            </div>
+        `;
+    }
+
     card.innerHTML = `
-        <div class="workout-card-header">
-            <div class="workout-date">${new Date(workout.date).toLocaleDateString()}</div>
-            <div class="form-check">
-                <input class="form-check-input workout-checkbox" type="checkbox" value="${workout.id}" ${isSelected ? 'checked' : ''}>
+        <div class="goal-header">
+            <div>
+                <h4 class="goal-title">${goal.title}</h4>
+                <div class="goal-type">${goalTypeMap[goal.goal_type] || goal.goal_type}</div>
             </div>
+            <div class="goal-status ${goal.status}">${goal.status}</div>
         </div>
-        <div class="workout-title">${workout.title}</div>
-        ${descriptionHTML}
-        <div class="workout-details">
-            <div class="workout-detail">
-                <div class="workout-detail-value">${workout.duration}</div>
-                <div class="workout-detail-label">Duration</div>
-            </div>
-            <div class="workout-detail">
-                <div class="workout-detail-value">${workout.exercises}</div>
-                <div class="workout-detail-label">Exercises</div>
-            </div>
-            <div class="workout-detail">
-                <div class="workout-detail-value">${workout.total_sets}</div>
-                <div class="workout-detail-label">Total Sets</div>
-            </div>
-            <div class="workout-detail">
-                <div class="workout-detail-value">${workout.total_volume || 'N/A'}</div>
-                <div class="workout-detail-label">Volume</div>
-            </div>
-        </div>
-        <div class="workout-actions">
-            <button class="btn btn-sm btn-outline-primary view-workout" data-id="${workout.id}">
-                <i class="fas fa-eye"></i> View
-            </button>
-            <button class="btn btn-sm btn-outline-danger delete-workout" data-id="${workout.id}">
+
+        ${valuesSection}
+
+        ${progressSection}
+
+        ${goal.notes ? `<p style="color: var(--gray-600); font-size: 0.875rem; margin: var(--space-4) 0;">${goal.notes}</p>` : ''}
+
+        <div class="goal-actions">
+            ${goal.status === 'active' && (goal.goal_type === 'calorie' || goal.goal_type === 'protein') ? `
+                <button class="btn btn-success btn-sm" onclick="completeGoal('${goal.id}')">
+                    <i class="fas fa-check"></i> Complete
+                </button>
+            ` : goal.status === 'active' ? `
+                <button class="btn btn-success btn-sm" onclick="completeGoal('${goal.id}')">
+                    <i class="fas fa-check"></i> Complete
+                </button>
+            ` : ''}
+            <button class="btn btn-danger btn-sm" onclick="deleteGoal('${goal.id}')">
                 <i class="fas fa-trash"></i> Delete
             </button>
         </div>
     `;
-    
-    // Add click handler for card selection
-    card.addEventListener('click', (e) => {
-        if (e.target.type !== 'checkbox' && !e.target.closest('button')) {
-            const checkbox = card.querySelector('.workout-checkbox');
-            checkbox.checked = !checkbox.checked;
-            checkbox.dispatchEvent(new Event('change'));
-        }
-    });
-    
+
     return card;
 }
 
-function renderMobileWorkoutCards(workouts) {
-    const container = document.getElementById('workout-cards-body');
-    if (!container) return;
+function updateProgress(goalId) {
+    document.getElementById('progressGoalId').value = goalId;
+    const modal = new bootstrap.Modal(document.getElementById('updateProgressModal'));
+    modal.show();
+}
+
+async function completeGoal(goalId) {
+    if (confirm('Are you sure you want to mark this goal as completed?')) {
+        try {
+            await apiCall(`/goals/${goalId}/complete`, {
+                method: 'POST',
+                body: JSON.stringify({})
+            });
+
+            await loadGoalsData();
+            alert('Goal completed! Congratulations!');
+        } catch (error) {
+            console.error('Error completing goal:', error);
+            alert('Error completing goal: ' + error.message);
+        }
+    }
+}
+
+async function deleteGoal(goalId) {
+    if (confirm('Are you sure you want to delete this goal?')) {
+        try {
+            await apiCall(`/goals/${goalId}`, {
+                method: 'DELETE'
+            });
+
+            await loadGoalsData();
+            alert('Goal deleted successfully!');
+        } catch (error) {
+            console.error('Error deleting goal:', error);
+            alert('Error deleting goal: ' + error.message);
+        }
+    }
+}
+
+async function renderGoalsChart(goals) {
+    const ctx = document.getElementById('goalsChart').getContext('2d');
     
-    container.innerHTML = '';
+    if (goals.length === 0) {
+        // Destroy existing chart if it exists
+        if (goalsChart) {
+            goalsChart.destroy();
+        }
+        
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#666';
+        ctx.fillText('No goals data to display', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        return;
+    }
+
+    // Prepare data for active goals
+    const activeGoals = goals.filter(g => g.status === 'active');
+    const labels = activeGoals.map(g => g.title);
     
-    workouts.forEach(workout => {
-        // Calculate total volume from exercises data
+    // Calculate progress for each goal
+    const progressData = [];
+    for (const goal of activeGoals) {
+        const progress = await calculateGoalProgressAsync(goal);
+        progressData.push(progress);
+    }
+
+    // Destroy existing chart if it exists
+    if (goalsChart) {
+        goalsChart.destroy();
+    }
+
+    // Create new chart
+    goalsChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Progress %',
+                data: progressData,
+                backgroundColor: [
+                    'rgba(37, 99, 235, 0.8)',
+                    'rgba(5, 150, 105, 0.8)',
+                    'rgba(217, 119, 6, 0.8)',
+                    'rgba(220, 38, 38, 0.8)',
+                    'rgba(147, 51, 234, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(37, 99, 235, 1)',
+                    'rgba(5, 150, 105, 1)',
+                    'rgba(217, 119, 6, 1)',
+                    'rgba(220, 38, 38, 1)',
+                    'rgba(147, 51, 234, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Update statistics display
+async function updateStats() {
+    try {
+        const records = await apiCall('/weight');
+        
+        if (records.length === 0) {
+            return;
+        }
+
+        // Get current weight
+        const latestRecord = records[records.length - 1];
+        const currentWeightElement = document.getElementById('current-weight');
+        if (currentWeightElement) {
+            currentWeightElement.textContent = latestRecord.log_weight ? `${latestRecord.log_weight} kg` : '--';
+        }
+
+        // Calculate weight change
+        const weightChangeElement = document.getElementById('weight-change');
+        if (weightChangeElement && records.length >= 2) {
+            const previousWeight = records[records.length - 2].log_weight;
+            const currentWeight = latestRecord.log_weight;
+            
+            if (previousWeight && currentWeight) {
+                const change = currentWeight - previousWeight;
+                const changeText = change >= 0 ? `+${change.toFixed(1)} kg` : `${change.toFixed(1)} kg`;
+                weightChangeElement.textContent = changeText;
+                weightChangeElement.className = change >= 0 ? 'stat-change positive' : 'stat-change negative';
+            }
+        }
+
+        // Calculate average calories (last 7 days)
+        const avgCaloriesElement = document.getElementById('avg-calories');
+        if (avgCaloriesElement) {
+            const recentRecords = records.slice(-7);
+            const totalCalories = recentRecords.reduce((sum, record) => sum + (record.log_calories || 0), 0);
+            const avgCalories = recentRecords.length > 0 ? totalCalories / recentRecords.length : 0;
+            avgCaloriesElement.textContent = avgCalories > 0 ? Math.round(avgCalories) : '--';
+        }
+
+        // Calculate average protein (last 7 days)
+        const avgProteinElement = document.getElementById('avg-protein');
+        if (avgProteinElement) {
+            const recentRecords = records.slice(-7);
+            const totalProtein = recentRecords.reduce((sum, record) => sum + (record.log_protein || 0), 0);
+            const avgProtein = recentRecords.length > 0 ? totalProtein / recentRecords.length : 0;
+            avgProteinElement.textContent = avgProtein > 0 ? `${Math.round(avgProtein)}g` : '--';
+        }
+
+    } catch (error) {
+        console.error('Error updating stats:', error);
+    }
+}
+
+function updateGoalFormFields() {
+    const goalType = document.getElementById('goalType').value;
+    const currentValueGroup = document.getElementById('currentValueGroup');
+    const targetValueGroup = document.getElementById('targetValueGroup');
+    const targetDateGroup = document.getElementById('targetDateGroup');
+    const dailyLimitGroup = document.getElementById('dailyLimitGroup');
+    const currentHelper = document.getElementById('currentValueHelper');
+    const targetHelper = document.getElementById('targetValueHelper');
+    
+    // Get form elements to manage required attribute
+    const currentValueInput = document.getElementById('currentValue');
+    const targetValueInput = document.getElementById('targetValue');
+    const targetDateInput = document.getElementById('targetDate');
+    const dailyLimitInput = document.getElementById('dailyLimit');
+
+    // Hide all groups first and remove required attributes
+    currentValueGroup.style.display = 'none';
+    targetValueGroup.style.display = 'none';
+    targetDateGroup.style.display = 'none';
+    dailyLimitGroup.style.display = 'none';
+    
+    if (currentValueInput) currentValueInput.removeAttribute('required');
+    if (targetValueInput) targetValueInput.removeAttribute('required');
+    if (targetDateInput) targetDateInput.removeAttribute('required');
+    if (dailyLimitInput) dailyLimitInput.removeAttribute('required');
+
+    switch (goalType) {
+        case 'weight_loss':
+        case 'weight_gain':
+        case 'maintenance':
+            currentValueGroup.style.display = 'block';
+            targetValueGroup.style.display = 'block';
+            targetDateGroup.style.display = 'block';
+            currentHelper.textContent = 'Current weight (kg)';
+            targetHelper.textContent = 'Target weight (kg)';
+            
+            // Set required attributes
+            if (currentValueInput) currentValueInput.setAttribute('required', 'required');
+            if (targetValueInput) targetValueInput.setAttribute('required', 'required');
+            if (targetDateInput) targetDateInput.setAttribute('required', 'required');
+            break;
+        case 'calorie':
+        case 'protein':
+            dailyLimitGroup.style.display = 'block';
+            const limitHelper = document.getElementById('dailyLimitHelper');
+            if (limitHelper) {
+                limitHelper.textContent = goalType === 'calorie' ? 'Daily calorie limit' : 'Daily protein limit (g)';
+            }
+            
+            // Set required attribute
+            if (dailyLimitInput) dailyLimitInput.setAttribute('required', 'required');
+            break;
+        default:
+            currentValueGroup.style.display = 'block';
+            targetValueGroup.style.display = 'block';
+            targetDateGroup.style.display = 'block';
+            currentHelper.textContent = 'Current value';
+            targetHelper.textContent = 'Target value';
+            
+            // Set required attributes
+            if (currentValueInput) currentValueInput.setAttribute('required', 'required');
+            if (targetValueInput) targetValueInput.setAttribute('required', 'required');
+            if (targetDateInput) targetDateInput.setAttribute('required', 'required');
+    }
+}
+
+async function prefillCurrentValues() {
+    try {
+        const records = await apiCall('/weight');
+        if (records.length > 0) {
+            const latestRecord = records[records.length - 1];
+            const currentValueInput = document.getElementById('currentValue');
+            if (currentValueInput && latestRecord.log_weight) {
+                currentValueInput.value = latestRecord.log_weight;
+            }
+        }
+    } catch (error) {
+        // Prefill failed, user can enter manually
+    }
+}
+
+// Global functions for goal management
+window.updateProgress = updateProgress;
+window.completeGoal = completeGoal;
+window.deleteGoal = deleteGoal;
+
+// Mobile workout controls
+function initMobileWorkoutControls() {
+    const selectAllMobile = document.getElementById('select-all-workouts-mobile');
+    
+    if (selectAllMobile) {
+        selectAllMobile.addEventListener('change', (e) => {
+            const workoutCards = document.querySelectorAll('.workout-card');
+            workoutCards.forEach(card => {
+                if (e.target.checked) {
+                    card.classList.add('selected');
+                    selectedWorkouts.add(card.dataset.workoutId);
+                } else {
+                    card.classList.remove('selected');
+                    selectedWorkouts.delete(card.dataset.workoutId);
+                }
+            });
+            updateDeleteButtonState();
+        });
+    }
+}
+
+function renderMobileWorkoutCards(items) {
+    const cardsContainer = document.getElementById('workout-cards-body');
+    if (!cardsContainer) return;
+    
+    cardsContainer.innerHTML = '';
+    
+    items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'workout-card';
+        card.dataset.workoutId = item.id;
+        
+        // Format date
+        const date = new Date(item.workout_date);
+        const formattedDate = date.toLocaleDateString();
+        const duration = `${item.duration_minutes} min`;
+        
+        // Calculate total volume
         let totalVolume = 0;
         try {
-            const exercises = JSON.parse(workout.exercises);
+            const exercises = JSON.parse(item.exercises);
             exercises.forEach(exercise => {
-                if (exercise.sets && Array.isArray(exercise.sets)) {
+                if (exercise.sets && exercise.sets.length > 0) {
                     exercise.sets.forEach(set => {
-                        const weight = parseFloat(set.weight_kg) || 0;
-                        const reps = parseInt(set.reps) || 0;
-                        totalVolume += weight * reps;
+                        if (set.weight_kg && set.reps) {
+                            totalVolume += set.weight_kg * set.reps;
+                        }
                     });
                 }
             });
@@ -1483,168 +2074,220 @@ function renderMobileWorkoutCards(workouts) {
             // If parsing fails, volume remains 0
         }
         
-        // Transform the workout data to match the expected format
-        const workoutData = {
-            id: workout.id,
-            title: workout.title,
-            date: workout.workout_date,
-            duration: `${workout.duration_minutes} min`,
-            exercises: workout.total_exercises,
-            total_sets: workout.total_sets,
-            description: workout.description || '',
-            total_volume: totalVolume > 0 ? `${totalVolume.toFixed(1)} kg` : 'N/A'
-        };
+        card.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <h6 class="mb-1">${item.title}</h6>
+                    <small class="text-muted">${formattedDate}</small>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted">${duration}</small>
+                </div>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-4">
+                    <div class="text-center">
+                        <div class="fw-bold">${item.total_exercises}</div>
+                        <small class="text-muted">Exercises</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="text-center">
+                        <div class="fw-bold">${item.total_sets}</div>
+                        <small class="text-muted">Sets</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="text-center">
+                        <div class="fw-bold">${totalVolume > 0 ? `${totalVolume.toFixed(0)}kg` : 'N/A'}</div>
+                        <small class="text-muted">Volume</small>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary flex-fill" onclick="viewWorkoutDetails('${item.id}')">
+                    <i class="fas fa-eye"></i> View
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteWorkout('${item.id}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
         
-        const card = createWorkoutCard(workoutData);
-        container.appendChild(card);
-    });
-    
-    // Add event listeners for checkboxes
-    container.addEventListener('change', (e) => {
-        if (e.target.classList.contains('workout-checkbox')) {
-            const workoutId = e.target.value;
-            const card = e.target.closest('.workout-card');
-            
-            if (e.target.checked) {
-                selectedWorkouts.add(workoutId);
-                card.classList.add('selected');
-            } else {
-                selectedWorkouts.delete(workoutId);
-                card.classList.remove('selected');
-            }
-            
-            updateDeleteButtonState();
-            updateSelectAllState();
-        }
-    });
-    
-    // Add event listeners for action buttons
-    container.addEventListener('click', (e) => {
-        if (e.target.closest('.view-workout')) {
-            const workoutId = e.target.closest('.view-workout').dataset.id;
-            viewWorkoutDetails(workoutId);
-        } else if (e.target.closest('.delete-workout')) {
-            const workoutId = e.target.closest('.delete-workout').dataset.id;
-            if (confirm('Are you sure you want to delete this workout?')) {
-                deleteWorkout(workoutId);
-            }
-        }
-    });
-}
-
-function updateSelectAllState() {
-    const allCheckboxes = document.querySelectorAll('.workout-checkbox');
-    const selectAllDesktop = document.getElementById('select-all-workouts');
-    const selectAllMobile = document.getElementById('select-all-workouts-mobile');
-    
-    const checkedCount = document.querySelectorAll('.workout-checkbox:checked').length;
-    const totalCount = allCheckboxes.length;
-    
-    if (selectAllDesktop) {
-        selectAllDesktop.checked = checkedCount === totalCount && totalCount > 0;
-        selectAllDesktop.indeterminate = checkedCount > 0 && checkedCount < totalCount;
-    }
-    
-    if (selectAllMobile) {
-        selectAllMobile.checked = checkedCount === totalCount && totalCount > 0;
-        selectAllMobile.indeterminate = checkedCount > 0 && checkedCount < totalCount;
-    }
-}
-
-function initMobileWorkoutControls() {
-    // Mobile select all
-    const selectAllMobile = document.getElementById('select-all-workouts-mobile');
-    if (selectAllMobile) {
-        selectAllMobile.addEventListener('change', (e) => {
-            const checkboxes = document.querySelectorAll('.workout-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = e.target.checked;
-                const workoutId = checkbox.value;
-                const card = checkbox.closest('.workout-card');
-                
-                if (e.target.checked) {
-                    selectedWorkouts.add(workoutId);
-                    if (card) card.classList.add('selected');
+        // Add click handler for selection
+        card.addEventListener('click', (e) => {
+            if (!e.target.closest('button')) {
+                card.classList.toggle('selected');
+                if (card.classList.contains('selected')) {
+                    selectedWorkouts.add(item.id.toString());
                 } else {
-                    selectedWorkouts.delete(workoutId);
-                    if (card) card.classList.remove('selected');
+                    selectedWorkouts.delete(item.id.toString());
                 }
+                updateDeleteButtonState();
+            }
+        });
+        
+        cardsContainer.appendChild(card);
+    });
+}
+
+// Calculate goal progress asynchronously
+async function calculateGoalProgressAsync(goal) {
+    try {
+        // For daily limit goals (calorie/protein), progress is tracked differently
+        if (goal.goal_type === 'calorie' || goal.goal_type === 'protein') {
+            return 0; // Daily goals don't have a traditional progress percentage
+        }
+        
+        // For weight goals, fetch goal progress entries
+        const data = await apiCall(`/goals/${goal.id}/progress`);
+        if (Array.isArray(data) && data.length > 0) {
+            return data[data.length - 1].progress_percentage;
+        }
+        
+        // Fallback calculation based on current and target values
+        if (goal.current_value != null && goal.target_value != null) {
+            const totalChange = goal.target_value - goal.current_value;
+            if (totalChange === 0) return 100;
+            
+            // Get latest weight to calculate current progress
+            const records = await apiCall('/weight');
+            if (records.length > 0) {
+                const latestWeight = records[records.length - 1].log_weight;
+                if (latestWeight) {
+                    const currentChange = latestWeight - goal.current_value;
+                    return Math.min(100, Math.max(0, (currentChange / totalChange) * 100));
+                }
+            }
+        }
+        
+        return 0;
+    } catch (error) {
+        console.error('Error calculating goal progress:', error);
+        return 0;
+    }
+}
+
+// Get current value for goal
+async function getCurrentValueForGoal(goal) {
+    try {
+        // For daily limit goals, return the limit value
+        if (goal.goal_type === 'calorie' || goal.goal_type === 'protein') {
+            return goal.daily_limit || 0;
+        }
+        
+        // For weight goals, fetch progress to determine latest recorded value
+        const data = await apiCall(`/goals/${goal.id}/progress`);
+        if (Array.isArray(data) && data.length > 0) {
+            return data[data.length - 1].recorded_value;
+        }
+        
+        // Fallback: for weight goals, get latest weight from nutrition logs
+        if (goal.goal_type === 'weight_loss' || goal.goal_type === 'weight_gain' || goal.goal_type === 'maintenance') {
+            const records = await apiCall('/weight');
+            if (records.length > 0) {
+                const latestRecord = records[records.length - 1];
+                if (latestRecord.log_weight) {
+                    return latestRecord.log_weight;
+                }
+            }
+        }
+        
+        return goal.current_value || 0;
+    } catch (error) {
+        console.error('Error getting current value for goal:', error);
+        return goal.current_value || goal.daily_limit || 0;
+    }
+}
+
+// Update goal progress display in data entry form
+function updateGoalProgressDisplay() {
+    const caloriesInput = document.getElementById('logCalories');
+    const proteinInput = document.getElementById('logProtein');
+    const progressDisplay = document.getElementById('goal-progress-display');
+    const progressContent = document.getElementById('goal-progress-content');
+    
+    if (!caloriesInput || !proteinInput || !progressDisplay || !progressContent) return;
+    
+    const calories = parseFloat(caloriesInput.value) || 0;
+    const protein = parseFloat(proteinInput.value) || 0;
+    
+    // Find active calorie and protein goals
+    const calorieGoal = goalsData.find(g => g.goal_type === 'calorie' && g.status === 'active');
+    const proteinGoal = goalsData.find(g => g.goal_type === 'protein' && g.status === 'active');
+    
+    let hasActiveGoals = false;
+    let progressHTML = '';
+    
+    if (calorieGoal) {
+        hasActiveGoals = true;
+        const remaining = calorieGoal.daily_limit - calories;
+        const percentage = (calories / calorieGoal.daily_limit) * 100;
+        const status = remaining >= 0 ? 'success' : 'danger';
+        const statusText = remaining >= 0 ? `${remaining.toFixed(0)} calories remaining` : `${Math.abs(remaining).toFixed(0)} calories over limit`;
+        
+        progressHTML += `
+            <div class="mb-2">
+                <div class="d-flex justify-content-between">
+                    <span><strong>Calories:</strong> ${calories} / ${calorieGoal.daily_limit}</span>
+                    <span class="text-${status}">${statusText}</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-${status}" style="width: ${Math.min(percentage, 100)}%"></div>
+                </div>
+            </div>
+        `;
+    }
+    
+    if (proteinGoal) {
+        hasActiveGoals = true;
+        const remaining = proteinGoal.daily_limit - protein;
+        const percentage = (protein / proteinGoal.daily_limit) * 100;
+        const status = remaining >= 0 ? 'success' : 'danger';
+        const statusText = remaining >= 0 ? `${remaining.toFixed(1)}g remaining` : `${Math.abs(remaining).toFixed(1)}g over limit`;
+        
+        progressHTML += `
+            <div class="mb-2">
+                <div class="d-flex justify-content-between">
+                    <span><strong>Protein:</strong> ${protein}g / ${proteinGoal.daily_limit}g</span>
+                    <span class="text-${status}">${statusText}</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-${status}" style="width: ${Math.min(percentage, 100)}%"></div>
+                </div>
+            </div>
+        `;
+    }
+    
+    if (hasActiveGoals) {
+        progressContent.innerHTML = progressHTML;
+        progressDisplay.style.display = 'block';
+    } else {
+        progressDisplay.style.display = 'none';
+    }
+}
+
+// Auto-update weight goals when new weight data is logged
+async function updateWeightGoals(newWeight) {
+    try {
+        const weightGoals = goalsData.filter(g => 
+            (g.goal_type === 'weight_loss' || g.goal_type === 'weight_gain' || g.goal_type === 'maintenance') && 
+            g.status === 'active'
+        );
+        
+        for (const goal of weightGoals) {
+            await apiCall(`/goals/${goal.id}/progress`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    recorded_value: newWeight,
+                    notes: 'Auto-updated from weight log'
+                })
             });
-            
-            updateDeleteButtonState();
-        });
+        }
+        
+        // Reload goals to reflect updated progress
+        await loadGoalsData();
+    } catch (error) {
+        console.error('Error updating weight goals:', error);
     }
-}
-
-// Update stats for nutrition section
-function updateStats() {
-    // Get all weight log data
-    apiCall('/weight')
-        .then(data => {
-            if (!data || data.length === 0) {
-                // No data available
-                return;
-            }
-
-            // Sort data by date
-            const sortedData = data.sort((a, b) => new Date(a.log_date) - new Date(b.log_date));
-            
-            // Current Weight
-            const latestEntry = sortedData[sortedData.length - 1];
-            const currentWeight = latestEntry.log_weight || 0;
-            document.getElementById('current-weight').textContent = currentWeight ? `${currentWeight} kg` : '--';
-
-            // Weight Change (compared to first entry)
-            if (sortedData.length >= 2) {
-                const firstEntry = sortedData[0];
-                const firstWeight = firstEntry.log_weight || 0;
-                const weightChange = currentWeight - firstWeight;
-                const changeElement = document.getElementById('weight-change');
-                
-                if (weightChange > 0) {
-                    changeElement.textContent = `+${weightChange.toFixed(1)} kg`;
-                    changeElement.style.color = 'var(--danger-color)';
-                } else if (weightChange < 0) {
-                    changeElement.textContent = `${weightChange.toFixed(1)} kg`;
-                    changeElement.style.color = 'var(--success-color)';
-                } else {
-                    changeElement.textContent = '0 kg';
-                    changeElement.style.color = 'var(--text-muted)';
-                }
-            } else {
-                document.getElementById('weight-change').textContent = '--';
-            }
-
-            // Average Daily Calories (last 30 days)
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            
-            const recentEntries = sortedData.filter(entry => 
-                new Date(entry.log_date) >= thirtyDaysAgo && entry.log_calories > 0
-            );
-            
-            if (recentEntries.length > 0) {
-                const totalCalories = recentEntries.reduce((sum, entry) => sum + (entry.log_calories || 0), 0);
-                const avgCalories = Math.round(totalCalories / recentEntries.length);
-                document.getElementById('avg-calories').textContent = avgCalories;
-            } else {
-                document.getElementById('avg-calories').textContent = '--';
-            }
-
-            // Average Daily Protein (last 30 days)
-            const recentProteinEntries = sortedData.filter(entry => 
-                new Date(entry.log_date) >= thirtyDaysAgo && entry.log_protein > 0
-            );
-            
-            if (recentProteinEntries.length > 0) {
-                const totalProtein = recentProteinEntries.reduce((sum, entry) => sum + (entry.log_protein || 0), 0);
-                const avgProtein = Math.round(totalProtein / recentProteinEntries.length);
-                document.getElementById('avg-protein').textContent = `${avgProtein}g`;
-            } else {
-                document.getElementById('avg-protein').textContent = '--';
-            }
-        })
-        .catch(error => {
-            // Error updating stats
-        });
 }

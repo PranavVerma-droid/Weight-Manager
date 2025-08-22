@@ -32,54 +32,80 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, 'weight_manager.db');
 const db = new sqlite3.Database(dbPath);
 
-// Create tables
-db.serialize(() => {
-    // Users table
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+    // Create tables
+    db.serialize(() => {
+        // Users table
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-    // Weight tracking table
-    db.run(`CREATE TABLE IF NOT EXISTS weight_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        log_date TEXT NOT NULL,
-        log_weight REAL,
-        log_protein REAL DEFAULT 0,
-        log_calories REAL DEFAULT 0,
-        log_carbs REAL DEFAULT 0,
-        log_fat REAL DEFAULT 0,
-        log_misc_info TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )`);
+        // Weight tracking table
+        db.run(`CREATE TABLE IF NOT EXISTS weight_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            log_date TEXT NOT NULL,
+            log_weight REAL,
+            log_protein REAL DEFAULT 0,
+            log_calories REAL DEFAULT 0,
+            log_carbs REAL DEFAULT 0,
+            log_fat REAL DEFAULT 0,
+            log_misc_info TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
 
-    // Workouts table
-    db.run(`CREATE TABLE IF NOT EXISTS workouts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        title TEXT NOT NULL,
-        workout_date TEXT NOT NULL,
-        start_time TEXT NOT NULL,
-        duration_minutes INTEGER NOT NULL,
-        exercises TEXT NOT NULL,
-        total_exercises INTEGER NOT NULL,
-        total_sets INTEGER NOT NULL,
-        description TEXT DEFAULT '',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )`);
+        // Workouts table
+        db.run(`CREATE TABLE IF NOT EXISTS workouts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            title TEXT NOT NULL,
+            workout_date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            duration_minutes INTEGER NOT NULL,
+            exercises TEXT NOT NULL,
+            total_exercises INTEGER NOT NULL,
+            total_sets INTEGER NOT NULL,
+            description TEXT DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
 
-    // Create default admin user (password: admin123)
-    const defaultPassword = bcrypt.hashSync(DEFAULT_ADMIN.password, 10);
-    db.run(`INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)`, 
-        [DEFAULT_ADMIN.email, defaultPassword]);
-});
+        // Goals table
+        db.run(`CREATE TABLE IF NOT EXISTS goals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            goal_type TEXT NOT NULL CHECK(goal_type IN ('weight_loss', 'weight_gain', 'maintenance', 'calorie', 'protein')),
+            title TEXT NOT NULL,
+            current_value REAL,
+            target_value REAL,
+            target_date TEXT,
+            daily_limit REAL,
+            status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'paused', 'cancelled')),
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
 
-// Auth middleware
+        // Goal progress table
+        db.run(`CREATE TABLE IF NOT EXISTS goal_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            goal_id INTEGER,
+            recorded_value REAL NOT NULL,
+            progress_percentage REAL NOT NULL,
+            notes TEXT,
+            recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (goal_id) REFERENCES goals (id)
+        )`);
+
+        // Create default admin user (password: admin123)
+        const defaultPassword = bcrypt.hashSync(DEFAULT_ADMIN.password, 10);
+        db.run(`INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)`, 
+            [DEFAULT_ADMIN.email, defaultPassword]);
+    });// Auth middleware
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -247,6 +273,185 @@ app.post('/api/workouts/delete-multiple', authenticateToken, (req, res) => {
             return res.status(500).json({ error: 'Database error' });
         }
         res.json({ success: true, deletedCount: this.changes });
+    });
+});
+
+// Goals routes
+app.get('/api/goals', authenticateToken, (req, res) => {
+    db.all('SELECT * FROM goals WHERE user_id = ? ORDER BY created_at DESC', 
+        [req.user.id], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json(rows);
+    });
+});
+
+app.post('/api/goals', authenticateToken, (req, res) => {
+    const { goal_type, title, current_value, target_value, target_date, daily_limit, notes } = req.body;
+    
+    if (!goal_type || !title) {
+        return res.status(400).json({ error: 'Goal type and title are required' });
+    }
+    
+    // Check for existing active calorie/protein goals
+    if (goal_type === 'calorie' || goal_type === 'protein') {
+        db.get('SELECT id FROM goals WHERE user_id = ? AND goal_type = ? AND status = "active"', 
+            [req.user.id, goal_type], (err, existing) => {
+            if (err) {
+                console.error('Database error checking existing goals:', err);
+                return res.status(500).json({ error: 'Database error' });
+            }
+            
+            if (existing) {
+                return res.status(400).json({ error: `You already have an active ${goal_type} goal` });
+            }
+            
+            // Create daily limit goal
+            if (!daily_limit) {
+                return res.status(400).json({ error: 'Daily limit is required for calorie/protein goals' });
+            }
+            
+            db.run(`INSERT INTO goals 
+                (user_id, goal_type, title, daily_limit, notes)
+                VALUES (?, ?, ?, ?, ?)`,
+                [req.user.id, goal_type, title, daily_limit, notes || ''],
+                function(err) {
+                    if (err) {
+                        console.error('Database error creating daily limit goal:', err);
+                        return res.status(500).json({ error: 'Database error: ' + err.message });
+                    }
+                    res.json({ id: this.lastID, success: true });
+                });
+        });
+    } else {
+        // Weight-related goals
+        if (current_value == null || target_value == null || !target_date) {
+            return res.status(400).json({ error: 'Current value, target value, and target date are required for weight goals' });
+        }
+        
+        db.run(`INSERT INTO goals 
+            (user_id, goal_type, title, current_value, target_value, target_date, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [req.user.id, goal_type, title, current_value, target_value, target_date, notes || ''],
+            function(err) {
+                if (err) {
+                    console.error('Database error creating weight goal:', err);
+                    return res.status(500).json({ error: 'Database error: ' + err.message });
+                }
+                res.json({ id: this.lastID, success: true });
+            });
+    }
+});
+
+app.put('/api/goals/:id', authenticateToken, (req, res) => {
+    const { goal_type, title, current_value, target_value, target_date, status, notes } = req.body;
+    
+    db.run(`UPDATE goals 
+        SET goal_type = ?, title = ?, current_value = ?, target_value = ?, 
+            target_date = ?, status = ?, notes = ?
+        WHERE id = ? AND user_id = ?`,
+        [goal_type, title, current_value, target_value, target_date, status || 'active', notes || '', req.params.id, req.user.id],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+            res.json({ success: true });
+        });
+});
+
+app.delete('/api/goals/:id', authenticateToken, (req, res) => {
+    db.run('DELETE FROM goals WHERE id = ? AND user_id = ?', 
+        [req.params.id, req.user.id], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json({ success: true });
+    });
+});
+
+// Complete goal
+app.post('/api/goals/:id/complete', authenticateToken, (req, res) => {
+    const { recorded_value, notes } = req.body;
+    
+    db.run(`UPDATE goals 
+        SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND user_id = ?`,
+        [req.params.id, req.user.id], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        // Add progress entry
+        if (recorded_value != null) {
+            db.run(`INSERT INTO goal_progress 
+                (goal_id, recorded_value, progress_percentage, notes)
+                VALUES (?, ?, 100, ?)`,
+                [req.params.id, recorded_value, notes || '']);
+        }
+        
+        res.json({ success: true });
+    });
+});
+
+// Add goal progress entry
+app.post('/api/goals/:id/progress', authenticateToken, (req, res) => {
+    const { recorded_value, notes } = req.body;
+    
+    if (recorded_value == null) {
+        return res.status(400).json({ error: 'Recorded value is required' });
+    }
+    
+    // Get goal details to calculate progress
+    db.get('SELECT * FROM goals WHERE id = ? AND user_id = ?', 
+        [req.params.id, req.user.id], (err, goal) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (!goal) {
+            return res.status(404).json({ error: 'Goal not found' });
+        }
+        
+        // Calculate progress percentage for weight goals
+        let progressPercentage = 0;
+        if (goal.goal_type === 'weight_loss' || goal.goal_type === 'weight_gain' || goal.goal_type === 'maintenance') {
+            const totalChange = goal.target_value - goal.current_value;
+            const currentChange = recorded_value - goal.current_value;
+            progressPercentage = totalChange === 0 ? 100 : Math.min(100, Math.max(0, (currentChange / totalChange) * 100));
+        }
+        
+        db.run(`INSERT INTO goal_progress 
+            (goal_id, recorded_value, progress_percentage, notes)
+            VALUES (?, ?, ?, ?)`,
+            [req.params.id, recorded_value, progressPercentage, notes || ''], function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+            
+            // Update goal current value for weight goals
+            if (goal.goal_type === 'weight_loss' || goal.goal_type === 'weight_gain' || goal.goal_type === 'maintenance') {
+                db.run('UPDATE goals SET current_value = ? WHERE id = ?', 
+                    [recorded_value, req.params.id]);
+            }
+            
+            res.json({ id: this.lastID, success: true, progress_percentage: progressPercentage });
+        });
+    });
+});
+
+// Get goal progress
+app.get('/api/goals/:id/progress', authenticateToken, (req, res) => {
+    db.all(`SELECT gp.*, g.title, g.goal_type 
+        FROM goal_progress gp 
+        JOIN goals g ON gp.goal_id = g.id 
+        WHERE g.id = ? AND g.user_id = ? 
+        ORDER BY gp.recorded_at ASC`, 
+        [req.params.id, req.user.id], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json(rows);
     });
 });
 
