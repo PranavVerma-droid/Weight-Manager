@@ -7,8 +7,6 @@ Type=simple
 User=pranavverma
 WorkingDirectory=/home/pranavverma/Github/Server/Weight Manager
 ExecStart=/usr/bin/node server.js
-Environment=NODE_ENV=production
-Environment=PORT=3000
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
