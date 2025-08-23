@@ -274,6 +274,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     
+    // Remove required attributes from auto form fields initially
+    const autoFormFields = ['autoLogDate', 'autoMealType', 'foodDescription'];
+    autoFormFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) field.removeAttribute('required');
+    });
+    
     // Initialize navigation and mobile menu
     initNavigation();
     initMobileMenu();
@@ -282,7 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeFilters();
     initAutoTracking();
     
-    // Set default to manual mode
+    // Set default to manual mode (must be done after DOM is ready)
     switchToManualMode();
     
     // Display user info
@@ -476,13 +483,29 @@ if (importDataBtn && importFileInput) {
 weightForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Only process manual form submission, not auto form
+    // Only process manual form submission when in manual mode
     if (isAutoMode) {
+        console.log('Form submission blocked - currently in auto mode');
+        return;
+    }
+    
+    // Check if manual form fields are valid
+    const logDate = document.getElementById('logDate');
+    const mealType = document.getElementById('mealType');
+    const logProtein = document.getElementById('logProtein');
+    const logCalories = document.getElementById('logCalories');
+    const logCarbs = document.getElementById('logCarbs');
+    const logFat = document.getElementById('logFat');
+    
+    if (!logDate.value || !mealType.value || 
+        logProtein.value === '' || logCalories.value === '' || 
+        logCarbs.value === '' || logFat.value === '') {
+        alert('Please fill in all required fields');
         return;
     }
     
     try {
-        const mealType = document.getElementById('mealType').value;
+        const mealTypeValue = document.getElementById('mealType').value;
         const customMealName = document.getElementById('customMealName').value;
         
         const formData = {
@@ -493,8 +516,8 @@ weightForm.addEventListener('submit', async (e) => {
             log_carbs: parseFloat(document.getElementById('logCarbs').value) || 0,
             log_fat: parseFloat(document.getElementById('logFat').value) || 0,
             log_misc_info: document.getElementById('logMiscInfo').value || "",
-            meal_type: mealType,
-            meal_name: mealType === 'custom' ? customMealName : null
+            meal_type: mealTypeValue,
+            meal_name: mealTypeValue === 'custom' ? customMealName : null
         };
 
         await apiCall('/weight', {
@@ -2468,7 +2491,7 @@ function updateGoalProgressDisplay() {
         hasActiveGoals = true;
         const remaining = calorieGoal.daily_limit - calories;
         const percentage = (calories / calorieGoal.daily_limit) * 100;
-        const status = remaining >= 0 ? 'success' : 'danger';
+        const status = remaining >= 0 ? 'success' : remaining >= -10 ? 'warning' : 'danger';
         const statusText = remaining >= 0 ? `${remaining.toFixed(0)} calories remaining` : `${Math.abs(remaining).toFixed(0)} calories over limit`;
         
         progressHTML += `
@@ -2488,7 +2511,7 @@ function updateGoalProgressDisplay() {
         hasActiveGoals = true;
         const remaining = proteinGoal.daily_limit - protein;
         const percentage = (protein / proteinGoal.daily_limit) * 100;
-        const status = remaining >= 0 ? 'success' : 'danger';
+        const status = remaining >= 0 ? 'success' : remaining >= -10 ? 'warning' : 'danger';
         const statusText = remaining >= 0 ? `${remaining.toFixed(1)}g remaining` : `${Math.abs(remaining).toFixed(1)}g over limit`;
         
         progressHTML += `
@@ -2803,6 +2826,8 @@ function switchToManualMode() {
     const aiResults = document.getElementById('ai-results');
     const manualSubmitBtn = document.getElementById('manual-submit-btn');
     const foodDescription = document.getElementById('foodDescription');
+    const autoLogDate = document.getElementById('autoLogDate');
+    const autoMealType = document.getElementById('autoMealType');
     
     if (manualModeBtn) {
         manualModeBtn.classList.remove('btn-outline-primary');
@@ -2821,6 +2846,23 @@ function switchToManualMode() {
     
     // Remove required attribute from auto form fields
     if (foodDescription) foodDescription.removeAttribute('required');
+    if (autoLogDate) autoLogDate.removeAttribute('required');
+    if (autoMealType) autoMealType.removeAttribute('required');
+    
+    // Add required attribute to manual form fields
+    const logDate = document.getElementById('logDate');
+    const mealType = document.getElementById('mealType');
+    const logProtein = document.getElementById('logProtein');
+    const logCalories = document.getElementById('logCalories');
+    const logCarbs = document.getElementById('logCarbs');
+    const logFat = document.getElementById('logFat');
+    
+    if (logDate) logDate.setAttribute('required', 'required');
+    if (mealType) mealType.setAttribute('required', 'required');
+    if (logProtein) logProtein.setAttribute('required', 'required');
+    if (logCalories) logCalories.setAttribute('required', 'required');
+    if (logCarbs) logCarbs.setAttribute('required', 'required');
+    if (logFat) logFat.setAttribute('required', 'required');
     
     // Clear any pending AI analysis
     pendingAIAnalysis = null;
@@ -2835,6 +2877,8 @@ function switchToAutoMode() {
     const aiResults = document.getElementById('ai-results');
     const manualSubmitBtn = document.getElementById('manual-submit-btn');
     const foodDescription = document.getElementById('foodDescription');
+    const autoLogDate = document.getElementById('autoLogDate');
+    const autoMealType = document.getElementById('autoMealType');
     
     if (manualModeBtn) {
         manualModeBtn.classList.remove('btn-primary');
@@ -2851,11 +2895,27 @@ function switchToAutoMode() {
     if (aiResults) aiResults.style.display = 'none';
     if (manualSubmitBtn) manualSubmitBtn.style.display = 'none';
     
+    // Remove required attribute from manual form fields
+    const logDate = document.getElementById('logDate');
+    const mealType = document.getElementById('mealType');
+    const logProtein = document.getElementById('logProtein');
+    const logCalories = document.getElementById('logCalories');
+    const logCarbs = document.getElementById('logCarbs');
+    const logFat = document.getElementById('logFat');
+    
+    if (logDate) logDate.removeAttribute('required');
+    if (mealType) mealType.removeAttribute('required');
+    if (logProtein) logProtein.removeAttribute('required');
+    if (logCalories) logCalories.removeAttribute('required');
+    if (logCarbs) logCarbs.removeAttribute('required');
+    if (logFat) logFat.removeAttribute('required');
+    
     // Add required attribute to auto form fields
-    if (foodDescription) foodDescription.setAttribute('required', '');
+    if (foodDescription) foodDescription.setAttribute('required', 'required');
+    if (autoLogDate) autoLogDate.setAttribute('required', 'required');
+    if (autoMealType) autoMealType.setAttribute('required', 'required');
     
     // Set current date for auto form
-    const autoLogDate = document.getElementById('autoLogDate');
     if (autoLogDate) {
         const now = new Date();
         autoLogDate.value = now.toISOString().split('T')[0];
