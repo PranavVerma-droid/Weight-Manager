@@ -53,6 +53,8 @@ const db = new sqlite3.Database(dbPath);
             log_carbs REAL DEFAULT 0,
             log_fat REAL DEFAULT 0,
             log_misc_info TEXT,
+            meal_type TEXT DEFAULT 'full_day',
+            meal_name TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )`);
@@ -152,13 +154,46 @@ app.get('/api/weight', authenticateToken, (req, res) => {
     });
 });
 
+// Get daily summary (grouped by date)
+app.get('/api/weight/daily-summary', authenticateToken, (req, res) => {
+    db.all(`SELECT 
+        log_date,
+        SUM(log_calories) as total_calories,
+        SUM(log_protein) as total_protein,
+        SUM(log_carbs) as total_carbs,
+        SUM(log_fat) as total_fat,
+        AVG(CASE WHEN log_weight IS NOT NULL THEN log_weight END) as avg_weight,
+        COUNT(*) as meal_count
+        FROM weight_logs 
+        WHERE user_id = ? 
+        GROUP BY log_date 
+        ORDER BY log_date DESC`, 
+        [req.user.id], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json(rows);
+    });
+});
+
+// Get specific day details
+app.get('/api/weight/day/:date', authenticateToken, (req, res) => {
+    db.all('SELECT * FROM weight_logs WHERE user_id = ? AND log_date = ? ORDER BY created_at ASC', 
+        [req.user.id, req.params.date], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json(rows);
+    });
+});
+
 app.post('/api/weight', authenticateToken, (req, res) => {
-    const { log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info } = req.body;
+    const { log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name } = req.body;
     
     db.run(`INSERT INTO weight_logs 
-        (user_id, log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.user.id, log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info],
+        (user_id, log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.id, log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type || 'full_day', meal_name],
         function(err) {
             if (err) {
                 return res.status(500).json({ error: 'Database error' });
@@ -168,13 +203,13 @@ app.post('/api/weight', authenticateToken, (req, res) => {
 });
 
 app.put('/api/weight/:id', authenticateToken, (req, res) => {
-    const { log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info } = req.body;
+    const { log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name } = req.body;
     
     db.run(`UPDATE weight_logs 
         SET log_date = ?, log_weight = ?, log_protein = ?, log_calories = ?, 
-            log_carbs = ?, log_fat = ?, log_misc_info = ?
+            log_carbs = ?, log_fat = ?, log_misc_info = ?, meal_type = ?, meal_name = ?
         WHERE id = ? AND user_id = ?`,
-        [log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, req.params.id, req.user.id],
+        [log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type || 'full_day', meal_name, req.params.id, req.user.id],
         function(err) {
             if (err) {
                 return res.status(500).json({ error: 'Database error' });

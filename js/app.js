@@ -279,6 +279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initMobileMenu();
     initUserMenu();
     initGoalsEvents();
+    initializeFilters();
     
     // Display user info
     const userDisplayName = document.getElementById('user-display-name');
@@ -472,6 +473,9 @@ weightForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     try {
+        const mealType = document.getElementById('mealType').value;
+        const customMealName = document.getElementById('customMealName').value;
+        
         const formData = {
             log_date: document.getElementById('logDate').value,
             log_weight: document.getElementById('logWeight').value ? parseFloat(document.getElementById('logWeight').value) : null,
@@ -479,7 +483,9 @@ weightForm.addEventListener('submit', async (e) => {
             log_calories: parseFloat(document.getElementById('logCalories').value) || 0,
             log_carbs: parseFloat(document.getElementById('logCarbs').value) || 0,
             log_fat: parseFloat(document.getElementById('logFat').value) || 0,
-            log_misc_info: document.getElementById('logMiscInfo').value || ""
+            log_misc_info: document.getElementById('logMiscInfo').value || "",
+            meal_type: mealType,
+            meal_name: mealType === 'custom' ? customMealName : null
         };
 
         await apiCall('/weight', {
@@ -500,6 +506,8 @@ weightForm.addEventListener('submit', async (e) => {
         document.getElementById('logCalories').value = '0';
         document.getElementById('logCarbs').value = '0';
         document.getElementById('logFat').value = '0';
+        document.getElementById('mealType').value = 'breakfast';
+        document.getElementById('customMealGroup').style.display = 'none';
         
         // Set default date to current date again
         const now = new Date();
@@ -523,9 +531,18 @@ weightForm.addEventListener('submit', async (e) => {
 async function loadData() {
     try {
         const records = await apiCall('/weight');
-        displayTableData(records);
-        renderWeightChart(records);
-        renderNutritionChart(records);
+        
+        // Store all records for filtering
+        allRecords = records;
+        filteredRecords = [...records]; // Initialize filtered records with all records
+        
+        displayTableData(filteredRecords);
+        updateFilterResultsCount();
+        
+        // Use daily summary for charts to improve performance
+        const dailySummary = await apiCall('/weight/daily-summary');
+        renderWeightChart(dailySummary);
+        renderNutritionChart(dailySummary);
     } catch (error) {
         console.error('Error loading data:', error);
         alert('Error loading data: ' + error.message);
@@ -543,6 +560,22 @@ function displayTableData(items) {
         const date = new Date(item.log_date);
         const formattedDate = date.toLocaleDateString();
         
+        // Format meal display
+        let mealDisplay = '';
+        if (item.meal_type === 'custom' && item.meal_name) {
+            mealDisplay = item.meal_name;
+        } else {
+            const mealTypes = {
+                'breakfast': 'Breakfast',
+                'lunch': 'Lunch',
+                'dinner': 'Dinner',
+                'morning_snack': 'Morning Snack',
+                'evening_snack': 'Evening Snack',
+                'full_day': 'Full Day'
+            };
+            mealDisplay = mealTypes[item.meal_type] || item.meal_type;
+        }
+        
         // Create a unique ID for the collapse element
         const collapseId = `note-collapse-${index}`;
         
@@ -556,6 +589,7 @@ function displayTableData(items) {
         
         row.innerHTML = `
             <td>${formattedDate}</td>
+            <td><span class="badge bg-secondary">${mealDisplay}</span></td>
             <td>${item.log_weight || '-'}</td>
             <td>${item.log_protein}</td>
             <td>${item.log_calories}</td>
@@ -572,6 +606,7 @@ function displayTableData(items) {
             <td>
                 <button class="btn btn-sm btn-primary me-1" onclick="editEntry('${item.id}')">Edit</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteEntry('${item.id}')">Delete</button>
+                <button class="btn btn-sm btn-info" onclick="viewDay('${item.log_date}')">View Day</button>
             </td>
         `;
         
@@ -598,6 +633,17 @@ async function editEntry(id) {
         const date = new Date(record.log_date);
         document.getElementById('editDate').value = date.toISOString().split('T')[0];
         
+        document.getElementById('editMealType').value = record.meal_type || 'full_day';
+        document.getElementById('editCustomMealName').value = record.meal_name || '';
+        
+        // Show/hide custom meal name field
+        const customMealGroup = document.getElementById('editCustomMealGroup');
+        if (record.meal_type === 'custom') {
+            customMealGroup.style.display = 'block';
+        } else {
+            customMealGroup.style.display = 'none';
+        }
+        
         document.getElementById('editWeight').value = record.log_weight;
         document.getElementById('editProtein').value = record.log_protein;
         document.getElementById('editCalories').value = record.log_calories;
@@ -618,6 +664,8 @@ async function editEntry(id) {
 document.getElementById('saveEditBtn').addEventListener('click', async () => {
     try {
         const id = document.getElementById('editId').value;
+        const mealType = document.getElementById('editMealType').value;
+        const customMealName = document.getElementById('editCustomMealName').value;
         
         const formData = {
             log_date: document.getElementById('editDate').value,
@@ -626,7 +674,9 @@ document.getElementById('saveEditBtn').addEventListener('click', async () => {
             log_calories: parseFloat(document.getElementById('editCalories').value) || 0,
             log_carbs: parseFloat(document.getElementById('editCarbs').value) || 0,
             log_fat: parseFloat(document.getElementById('editFat').value) || 0,
-            log_misc_info: document.getElementById('editMiscInfo').value || ""
+            log_misc_info: document.getElementById('editMiscInfo').value || "",
+            meal_type: mealType,
+            meal_name: mealType === 'custom' ? customMealName : null
         };
         
         await apiCall(`/weight/${id}`, {
@@ -669,7 +719,7 @@ function renderWeightChart(items) {
     const ctx = document.getElementById('weightChart').getContext('2d');
     
     // Filter items that have weight data
-    const weightItems = items.filter(item => item.log_weight && item.log_weight > 0);
+    const weightItems = items.filter(item => item.avg_weight && item.avg_weight > 0);
     
     if (weightItems.length === 0) {
         // Destroy existing chart if it exists
@@ -691,7 +741,7 @@ function renderWeightChart(items) {
         return date.toLocaleDateString();
     });
     
-    const weights = weightItems.map(item => item.log_weight);
+    const weights = weightItems.map(item => item.avg_weight);
     
     // Calculate trend line (simple linear regression)
     let trendLine = [];
@@ -775,10 +825,10 @@ function renderNutritionChart(items) {
         return date.toLocaleDateString();
     });
     
-    const proteins = recentItems.map(item => item.log_protein);
-    const calories = recentItems.map(item => item.log_calories / 100); // Scale down calories to fit with other metrics
-    const carbs = recentItems.map(item => item.log_carbs);
-    const fats = recentItems.map(item => item.log_fat);
+    const proteins = recentItems.map(item => item.total_protein);
+    const calories = recentItems.map(item => item.total_calories / 100); // Scale down calories to fit with other metrics
+    const carbs = recentItems.map(item => item.total_carbs);
+    const fats = recentItems.map(item => item.total_fat);
     
     // Destroy existing chart if it exists
     if (nutritionChart) {
@@ -2062,11 +2112,11 @@ function renderMobileWorkoutCards(items) {
         try {
             const exercises = JSON.parse(item.exercises);
             exercises.forEach(exercise => {
-                if (exercise.sets && exercise.sets.length > 0) {
+                if (exercise.sets && Array.isArray(exercise.sets)) {
                     exercise.sets.forEach(set => {
-                        if (set.weight_kg && set.reps) {
-                            totalVolume += set.weight_kg * set.reps;
-                        }
+                        const weight = parseFloat(set.weight_kg) || 0;
+                        const reps = parseInt(set.reps) || 0;
+                        totalVolume += weight * reps;
                     });
                 }
             });
@@ -2116,49 +2166,253 @@ function renderMobileWorkoutCards(items) {
         
         // Add click handler for selection
         card.addEventListener('click', (e) => {
-            if (!e.target.closest('button')) {
-                card.classList.toggle('selected');
-                if (card.classList.contains('selected')) {
-                    selectedWorkouts.add(item.id.toString());
-                } else {
-                    selectedWorkouts.delete(item.id.toString());
-                }
-                updateDeleteButtonState();
+            if (e.target.closest('button')) return; // Don't select when clicking buttons
+            
+            card.classList.toggle('selected');
+            if (card.classList.contains('selected')) {
+                selectedWorkouts.add(item.id);
+            } else {
+                selectedWorkouts.delete(item.id);
             }
+            updateDeleteButtonState();
         });
         
         cardsContainer.appendChild(card);
     });
 }
 
+// Meal type event handlers
+document.addEventListener('DOMContentLoaded', () => {
+    // Add meal type change handler
+    const mealTypeSelect = document.getElementById('mealType');
+    const customMealGroup = document.getElementById('customMealGroup');
+    
+    if (mealTypeSelect && customMealGroup) {
+        mealTypeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                customMealGroup.style.display = 'block';
+                document.getElementById('customMealName').required = true;
+            } else {
+                customMealGroup.style.display = 'none';
+                document.getElementById('customMealName').required = false;
+            }
+        });
+    }
+    
+    // Add edit meal type change handler
+    const editMealTypeSelect = document.getElementById('editMealType');
+    const editCustomMealGroup = document.getElementById('editCustomMealGroup');
+    
+    if (editMealTypeSelect && editCustomMealGroup) {
+        editMealTypeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                editCustomMealGroup.style.display = 'block';
+                document.getElementById('editCustomMealName').required = true;
+            } else {
+                editCustomMealGroup.style.display = 'none';
+                document.getElementById('editCustomMealName').required = false;
+            }
+        });
+    }
+});
+
+// View day function
+async function viewDay(date) {
+    try {
+        const dayData = await apiCall(`/weight/day/${date}`);
+        const goals = await apiCall('/goals');
+        
+        // Calculate daily totals
+        let totalCalories = 0;
+        let totalProtein = 0;
+        let totalCarbs = 0;
+        let totalFat = 0;
+        let weight = null;
+        
+        dayData.forEach(entry => {
+            totalCalories += entry.log_calories || 0;
+            totalProtein += entry.log_protein || 0;
+            totalCarbs += entry.log_carbs || 0;
+            totalFat += entry.log_fat || 0;
+            if (entry.log_weight) weight = entry.log_weight;
+        });
+        
+        // Find active goals
+        const calorieGoal = goals.find(g => g.goal_type === 'calorie' && g.status === 'active');
+        const proteinGoal = goals.find(g => g.goal_type === 'protein' && g.status === 'active');
+        
+        // Create day view HTML
+        let goalProgressHTML = '';
+        if (calorieGoal) {
+            const caloriesLeft = calorieGoal.daily_limit - totalCalories;
+            const calorieProgress = Math.min(100, (totalCalories / calorieGoal.daily_limit) * 100);
+            goalProgressHTML += `
+                <div class="mb-3">
+                    <h6>Calories: ${totalCalories} / ${calorieGoal.daily_limit} (${caloriesLeft > 0 ? caloriesLeft + ' left' : Math.abs(caloriesLeft) + ' over'})</h6>
+                    <div class="progress">
+                        <div class="progress-bar ${caloriesLeft < 0 ? 'bg-danger' : 'bg-success'}" style="width: ${calorieProgress}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (proteinGoal) {
+            const proteinLeft = proteinGoal.daily_limit - totalProtein;
+            const proteinProgress = Math.min(100, (protein / proteinGoal.daily_limit) * 100);
+            goalProgressHTML += `
+                <div class="mb-3">
+                    <h6>Protein: ${totalProtein}g / ${proteinGoal.daily_limit}g (${proteinLeft > 0 ? proteinLeft + 'g left' : Math.abs(proteinLeft) + 'g over'})</h6>
+                    <div class="progress">
+                        <div class="progress-bar ${proteinLeft < 0 ? 'bg-danger' : 'bg-success'}" style="width: ${proteinProgress}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        let mealsHTML = '';
+        if (dayData.length === 0) {
+            mealsHTML = '<p class="text-muted">No meals logged for this day.</p>';
+        } else {
+            dayData.forEach(entry => {
+                const mealTypes = {
+                    'breakfast': 'Breakfast',
+                    'lunch': 'Lunch', 
+                    'dinner': 'Dinner',
+                    'morning_snack': 'Morning Snack',
+                    'evening_snack': 'Evening Snack',
+                    'full_day': 'Full Day'
+                };
+                
+                const mealName = entry.meal_type === 'custom' && entry.meal_name ? 
+                    entry.meal_name : mealTypes[entry.meal_type] || entry.meal_type;
+                
+                mealsHTML += `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">${mealName} ${entry.log_weight ? `(Weight: ${entry.log_weight}kg)` : ''}</h6>
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <strong>Calories:</strong> ${entry.log_calories}
+                                </div>
+                                <div class="col-sm-3">
+                                    <strong>Protein:</strong> ${entry.log_protein}g
+                                </div>
+                                <div class="col-sm-3">
+                                    <strong>Carbs:</strong> ${entry.log_carbs}g
+                                </div>
+                                <div class="col-sm-3">
+                                    <strong>Fat:</strong> ${entry.log_fat}g
+                                </div>
+                            </div>
+                            ${entry.log_misc_info ? `<p class="mt-2 mb-0"><strong>Notes:</strong> ${entry.log_misc_info}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        const dayWindow = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
+        dayWindow.document.write(`
+            <html>
+                <head>
+                    <title>Day View - ${new Date(date).toLocaleDateString()}</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <style>
+                        body { font-family: 'Inter', sans-serif; background: #f8f9fa; }
+                        .summary-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+                        .goal-progress { background: #e3f2fd; }
+                    </style>
+                </head>
+                <body class="p-4">
+                    <div class="container-fluid">
+                        <h2 class="mb-4">Day Summary - ${new Date(date).toLocaleDateString()}</h2>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card summary-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Daily Totals</h5>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <h4>${totalCalories}</h4>
+                                                <small>Calories</small>
+                                            </div>
+                                            <div class="col-6">
+                                                <h4>${totalProtein}g</h4>
+                                                <small>Protein</small>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col-6">
+                                                <h4>${totalCarbs}g</h4>
+                                                <small>Carbs</small>
+                                            </div>
+                                            <div class="col-6">
+                                                <h4>${totalFat}g</h4>
+                                                <small>Fat</small>
+                                            </div>
+                                        </div>
+                                        ${weight ? `<div class="mt-2"><h5>Weight: ${weight}kg</h5></div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            ${goalProgressHTML ? `
+                                <div class="col-md-6">
+                                    <div class="card goal-progress">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Goal Progress</h5>
+                                            ${goalProgressHTML}
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <h4 class="mb-3">Meals & Entries</h4>
+                        ${mealsHTML}
+                        
+                        <div class="mt-4">
+                            <button onclick="window.close()" class="btn btn-secondary">Close</button>
+                            <button onclick="window.print()" class="btn btn-primary ms-2">Print</button>
+                        </div>
+                    </div>
+                </body>
+            </html>
+        `);
+        
+    } catch (error) {
+        console.error('Error loading day view:', error);
+        alert('Error loading day view: ' + error.message);
+    }
+}
+
+// Make viewDay globally available
+window.viewDay = viewDay;
+
 // Calculate goal progress asynchronously
 async function calculateGoalProgressAsync(goal) {
     try {
         // For daily limit goals (calorie/protein), progress is tracked differently
         if (goal.goal_type === 'calorie' || goal.goal_type === 'protein') {
-            return 0; // Daily goals don't have a traditional progress percentage
+            // For daily limit goals, we could track compliance over time
+            // For now, return 0 as these are tracked per day
+            return 0;
         }
         
         // For weight goals, fetch goal progress entries
         const data = await apiCall(`/goals/${goal.id}/progress`);
         if (Array.isArray(data) && data.length > 0) {
-            return data[data.length - 1].progress_percentage;
+            const latestProgress = data[data.length - 1];
+            return latestProgress.progress_percentage || 0;
         }
         
         // Fallback calculation based on current and target values
         if (goal.current_value != null && goal.target_value != null) {
             const totalChange = goal.target_value - goal.current_value;
-            if (totalChange === 0) return 100;
+            if (totalChange === 0) return 100; // Already at target
             
-            // Get latest weight to calculate current progress
-            const records = await apiCall('/weight');
-            if (records.length > 0) {
-                const latestWeight = records[records.length - 1].log_weight;
-                if (latestWeight) {
-                    const currentChange = latestWeight - goal.current_value;
-                    return Math.min(100, Math.max(0, (currentChange / totalChange) * 100));
-                }
-            }
+            // For now, return 0 since we don't have current progress
+            return 0;
         }
         
         return 0;
@@ -2179,7 +2433,8 @@ async function getCurrentValueForGoal(goal) {
         // For weight goals, fetch progress to determine latest recorded value
         const data = await apiCall(`/goals/${goal.id}/progress`);
         if (Array.isArray(data) && data.length > 0) {
-            return data[data.length - 1].recorded_value;
+            const latestProgress = data[data.length - 1];
+            return latestProgress.recorded_value || goal.current_value || 0;
         }
         
         // Fallback: for weight goals, get latest weight from nutrition logs
@@ -2187,9 +2442,7 @@ async function getCurrentValueForGoal(goal) {
             const records = await apiCall('/weight');
             if (records.length > 0) {
                 const latestRecord = records[records.length - 1];
-                if (latestRecord.log_weight) {
-                    return latestRecord.log_weight;
-                }
+                return latestRecord.log_weight || goal.current_value || 0;
             }
         }
         
@@ -2267,27 +2520,223 @@ function updateGoalProgressDisplay() {
     }
 }
 
-// Auto-update weight goals when new weight data is logged
-async function updateWeightGoals(newWeight) {
-    try {
-        const weightGoals = goalsData.filter(g => 
-            (g.goal_type === 'weight_loss' || g.goal_type === 'weight_gain' || g.goal_type === 'maintenance') && 
-            g.status === 'active'
-        );
-        
-        for (const goal of weightGoals) {
-            await apiCall(`/goals/${goal.id}/progress`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    recorded_value: newWeight,
-                    notes: 'Auto-updated from weight log'
-                })
-            });
+// Filtering functionality
+let allRecords = []; // Store all records for filtering
+let filteredRecords = []; // Store filtered records
+
+// Initialize filter functionality
+function initializeFilters() {
+    const applyFiltersBtn = document.getElementById('applyFilters');
+    const clearFiltersBtn = document.getElementById('clearFilters');
+    const exportFilteredBtn = document.getElementById('exportFilteredData');
+    
+    if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener('click', applyFilters);
+    }
+    
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', clearFilters);
+    }
+    
+    if (exportFilteredBtn) {
+        exportFilteredBtn.addEventListener('click', exportFilteredData);
+    }
+    
+    // Add real-time filtering on input change
+    const filterInputs = [
+        'filterMealType', 'filterDateFrom', 'filterDateTo', 'filterHasWeight',
+        'filterMinCalories', 'filterMaxCalories', 'filterMinProtein', 'filterSearchNotes'
+    ];
+    
+    filterInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.addEventListener('change', applyFilters);
+            input.addEventListener('input', applyFilters);
+        }
+    });
+}
+
+// Apply filters to the data
+function applyFilters() {
+    const filters = {
+        mealType: document.getElementById('filterMealType')?.value || '',
+        dateFrom: document.getElementById('filterDateFrom')?.value || '',
+        dateTo: document.getElementById('filterDateTo')?.value || '',
+        hasWeight: document.getElementById('filterHasWeight')?.value || '',
+        minCalories: parseFloat(document.getElementById('filterMinCalories')?.value) || 0,
+        maxCalories: parseFloat(document.getElementById('filterMaxCalories')?.value) || 99999,
+        minProtein: parseFloat(document.getElementById('filterMinProtein')?.value) || 0,
+        searchNotes: document.getElementById('filterSearchNotes')?.value.toLowerCase() || ''
+    };
+    
+    filteredRecords = allRecords.filter(record => {
+        // Meal type filter
+        if (filters.mealType && record.meal_type !== filters.mealType) {
+            return false;
         }
         
-        // Reload goals to reflect updated progress
-        await loadGoalsData();
-    } catch (error) {
-        console.error('Error updating weight goals:', error);
+        // Date range filter
+        if (filters.dateFrom && record.log_date < filters.dateFrom) {
+            return false;
+        }
+        if (filters.dateTo && record.log_date > filters.dateTo) {
+            return false;
+        }
+        
+        // Weight filter
+        if (filters.hasWeight === 'yes' && (!record.log_weight || record.log_weight <= 0)) {
+            return false;
+        }
+        if (filters.hasWeight === 'no' && record.log_weight && record.log_weight > 0) {
+            return false;
+        }
+        
+        // Calorie range filter
+        const calories = record.log_calories || 0;
+        if (calories < filters.minCalories || calories > filters.maxCalories) {
+            return false;
+        }
+        
+        // Protein filter
+        const protein = record.log_protein || 0;
+        if (protein < filters.minProtein) {
+            return false;
+        }
+        
+        // Notes search filter
+        if (filters.searchNotes && 
+            (!record.log_misc_info || 
+             !record.log_misc_info.toLowerCase().includes(filters.searchNotes))) {
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // Update the table display
+    displayTableData(filteredRecords);
+    
+    // Update filter results count
+    updateFilterResultsCount();
+}
+
+// Clear all filters
+function clearFilters() {
+    const filterInputs = [
+        'filterMealType', 'filterDateFrom', 'filterDateTo', 'filterHasWeight',
+        'filterMinCalories', 'filterMaxCalories', 'filterMinProtein', 'filterSearchNotes'
+    ];
+    
+    filterInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            if (input.type === 'select-one') {
+                input.selectedIndex = 0;
+            } else {
+                input.value = '';
+            }
+        }
+    });
+    
+    // Reset filtered records to all records
+    filteredRecords = [...allRecords];
+    displayTableData(filteredRecords);
+    updateFilterResultsCount();
+}
+
+// Update filter results count display
+function updateFilterResultsCount() {
+    const countElement = document.getElementById('filterResultsCount');
+    if (countElement) {
+        const filteredCount = filteredRecords.length;
+        const totalCount = allRecords.length;
+        
+        if (filteredCount === totalCount) {
+            countElement.textContent = `Showing all ${totalCount} entries`;
+        } else {
+            countElement.textContent = `Showing ${filteredCount} of ${totalCount} entries`;
+        }
     }
+}
+
+// Export filtered data
+async function exportFilteredData() {
+    try {
+        if (filteredRecords.length === 0) {
+            alert('No entries to export with current filters');
+            return;
+        }
+        
+        // Create export data structure
+        const exportData = {
+            weight_logs: filteredRecords,
+            workouts: [], // Empty for filtered nutrition export
+            export_info: {
+                exported_at: new Date().toISOString(),
+                filter_applied: true,
+                total_records: filteredRecords.length,
+                filters_used: getActiveFilters()
+            }
+        };
+        
+        // Convert to JSON
+        const dataStr = JSON.stringify(exportData, null, 2);
+        
+        // Create a download link
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        
+        // Create a date string for the filename
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        
+        // Create and click a temporary download link
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `filtered-nutrition-data-${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error exporting filtered data:', error);
+        alert('Error exporting filtered data: ' + error.message);
+    }
+}
+
+// Get active filters for export info
+function getActiveFilters() {
+    const filters = {};
+    
+    const mealType = document.getElementById('filterMealType')?.value;
+    if (mealType) filters.meal_type = mealType;
+    
+    const dateFrom = document.getElementById('filterDateFrom')?.value;
+    if (dateFrom) filters.date_from = dateFrom;
+    
+    const dateTo = document.getElementById('filterDateTo')?.value;
+    if (dateTo) filters.date_to = dateTo;
+    
+    const hasWeight = document.getElementById('filterHasWeight')?.value;
+    if (hasWeight) filters.has_weight = hasWeight;
+    
+    const minCalories = document.getElementById('filterMinCalories')?.value;
+    if (minCalories) filters.min_calories = parseFloat(minCalories);
+    
+    const maxCalories = document.getElementById('filterMaxCalories')?.value;
+    if (maxCalories) filters.max_calories = parseFloat(maxCalories);
+    
+    const minProtein = document.getElementById('filterMinProtein')?.value;
+    if (minProtein) filters.min_protein = parseFloat(minProtein);
+    
+    const searchNotes = document.getElementById('filterSearchNotes')?.value;
+    if (searchNotes) filters.search_notes = searchNotes;
+    
+    return filters;
 }
