@@ -282,6 +282,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeFilters();
     initAutoTracking();
     
+    // Set default to manual mode
+    switchToManualMode();
+    
     // Display user info
     const userDisplayName = document.getElementById('user-display-name');
     const userEmailDisplay = document.getElementById('user-email-display');
@@ -472,6 +475,11 @@ if (importDataBtn && importFileInput) {
 // Form submission handler
 weightForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Only process manual form submission, not auto form
+    if (isAutoMode) {
+        return;
+    }
     
     try {
         const mealType = document.getElementById('mealType').value;
@@ -2794,6 +2802,7 @@ function switchToManualMode() {
     const autoForm = document.getElementById('auto-entry-form');
     const aiResults = document.getElementById('ai-results');
     const manualSubmitBtn = document.getElementById('manual-submit-btn');
+    const foodDescription = document.getElementById('foodDescription');
     
     if (manualModeBtn) {
         manualModeBtn.classList.remove('btn-outline-primary');
@@ -2810,6 +2819,9 @@ function switchToManualMode() {
     if (aiResults) aiResults.style.display = 'none';
     if (manualSubmitBtn) manualSubmitBtn.style.display = 'block';
     
+    // Remove required attribute from auto form fields
+    if (foodDescription) foodDescription.removeAttribute('required');
+    
     // Clear any pending AI analysis
     pendingAIAnalysis = null;
 }
@@ -2822,6 +2834,7 @@ function switchToAutoMode() {
     const autoForm = document.getElementById('auto-entry-form');
     const aiResults = document.getElementById('ai-results');
     const manualSubmitBtn = document.getElementById('manual-submit-btn');
+    const foodDescription = document.getElementById('foodDescription');
     
     if (manualModeBtn) {
         manualModeBtn.classList.remove('btn-primary');
@@ -2838,6 +2851,9 @@ function switchToAutoMode() {
     if (aiResults) aiResults.style.display = 'none';
     if (manualSubmitBtn) manualSubmitBtn.style.display = 'none';
     
+    // Add required attribute to auto form fields
+    if (foodDescription) foodDescription.setAttribute('required', '');
+    
     // Set current date for auto form
     const autoLogDate = document.getElementById('autoLogDate');
     if (autoLogDate) {
@@ -2851,12 +2867,11 @@ async function analyzeFood() {
     const mealType = document.getElementById('autoMealType').value;
     const analyzeFoodBtn = document.getElementById('analyze-food-btn');
     
-    if (!foodDescription) {
-        alert('Please describe what you ate');
-        return;
-    }
-    
-    // Show loading state
+        if (!foodDescription) {
+            alert('Please describe what you ate');
+            document.getElementById('foodDescription').focus();
+            return;
+        }    // Show loading state
     if (analyzeFoodBtn) {
         analyzeFoodBtn.disabled = true;
         analyzeFoodBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
