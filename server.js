@@ -5,11 +5,18 @@ const fs = require('fs');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+
+// Ollama Configuration
+const OLLAMA_HOST = process.env.OLLAMA_HOST || 'localhost';
+const OLLAMA_PORT = process.env.OLLAMA_PORT || '11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'nutrition-analyzer';
+const OLLAMA_TIMEOUT = parseInt(process.env.OLLAMA_TIMEOUT) || 30000;
 
 // Default admin credentials (can be changed via settings)
 const DEFAULT_ADMIN = {
@@ -488,6 +495,167 @@ app.get('/api/goals/:id/progress', authenticateToken, (req, res) => {
         }
         res.json(rows);
     });
+});
+
+// Ollama nutrition analysis route
+app.post('/api/analyze-nutrition', authenticateToken, async (req, res) => {
+    const { description, mealType } = req.body;
+    
+    if (!description || !description.trim()) {
+        return res.status(400).json({ error: 'Food description is required' });
+    }
+    
+    try {
+        const ollamaUrl = `http://${OLLAMA_HOST}:${OLLAMA_PORT}/api/generate`;
+        
+        // Enhance the prompt with meal type context
+        const mealContext = mealType ? `This is a ${mealType.replace('_', ' ')} meal. ` : '';
+        const prompt = `${mealContext}${description.trim()}`;
+        
+        console.log('Sending to Ollama:', { model: OLLAMA_MODEL, prompt });
+        
+        const ollamaResponse = await axios.post(ollamaUrl, {
+            model: OLLAMA_MODEL,
+            prompt: prompt,
+            stream: false,
+            options: {
+                temperature: 0.1,
+                top_p: 0.8,
+                top_k: 20
+            }
+        }, {
+            timeout: OLLAMA_TIMEOUT,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Ollama raw response:', ollamaResponse.data.response);
+        
+        // Parse the JSON response from Ollama
+        let nutritionData;
+        try {
+            // Clean the response - remove any markdown formatting or extra text
+            let cleanResponse = ollamaResponse.data.response.trim();
+            
+            // Look for JSON content between curly braces
+            const jsonMatch = cleanResponse.match(/\{[^}]*\}/);
+            if (jsonMatch) {
+                cleanResponse = jsonMatch[0];
+            }
+            
+            // Remove any markdown code block markers
+            cleanResponse = cleanResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+            
+            console.log('Cleaned response:', cleanResponse);
+            
+            nutritionData = JSON.parse(cleanResponse);
+            
+            // Validate required fields
+            const requiredFields = ['log_protein', 'log_calories', 'log_carbs', 'log_fat', 'notes'];
+            for (const field of requiredFields) {
+                if (nutritionData[field] === undefined || nutritionData[field] === null) {
+                    throw new Error(`Missing required field: ${field}`);
+                }
+            }
+            
+            // Ensure numeric values are numbers
+            nutritionData.log_protein = parseFloat(nutritionData.log_protein) || 0;
+            nutritionData.log_calories = parseFloat(nutritionData.log_calories) || 0;
+            nutritionData.log_carbs = parseFloat(nutritionData.log_carbs) || 0;
+            nutritionData.log_fat = parseFloat(nutritionData.log_fat) || 0;
+            
+            // Round to 1 decimal place
+            nutritionData.log_protein = Math.round(nutritionData.log_protein * 10) / 10;
+            nutritionData.log_calories = Math.round(nutritionData.log_calories * 10) / 10;
+            nutritionData.log_carbs = Math.round(nutritionData.log_carbs * 10) / 10;
+            nutritionData.log_fat = Math.round(nutritionData.log_fat * 10) / 10;
+            
+        } catch (parseError) {
+            console.error('JSON parsing error:', parseError);
+            console.error('Raw response that failed to parse:', ollamaResponse.data.response);
+            
+            // Fallback: try to extract numbers from the response
+            const response = ollamaResponse.data.response;
+            const proteinMatch = response.match(/protein["\s:]*(\d+\.?\d*)/i);
+            const caloriesMatch = response.match(/calories["\s:]*(\d+\.?\d*)/i);
+            const carbsMatch = response.match(/carbs["\s:]*(\d+\.?\d*)/i);
+            const fatMatch = response.match(/fat["\s:]*(\d+\.?\d*)/i);
+            
+            if (proteinMatch && caloriesMatch && carbsMatch && fatMatch) {
+                nutritionData = {
+                    log_protein: parseFloat(proteinMatch[1]) || 0,
+                    log_calories: parseFloat(caloriesMatch[1]) || 0,
+                    log_carbs: parseFloat(carbsMatch[1]) || 0,
+                    log_fat: parseFloat(fatMatch[1]) || 0,
+                    notes: `AI analysis of: ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}`
+                };
+            } else {
+                return res.status(500).json({ 
+                    error: 'Failed to parse nutrition data from AI response',
+                    details: 'The AI model may need retraining. Please use manual entry.',
+                    rawResponse: ollamaResponse.data.response.substring(0, 200)
+                });
+            }
+        }
+        
+        console.log('Parsed nutrition data:', nutritionData);
+        
+        res.json({
+            success: true,
+            nutrition: nutritionData,
+            confidence: 0.8, // You could implement actual confidence scoring
+            originalDescription: description
+        });
+        
+    } catch (error) {
+        console.error('Ollama API error:', error);
+        
+        if (error.code === 'ECONNREFUSED') {
+            return res.status(503).json({ 
+                error: 'AI service unavailable',
+                details: 'Please ensure Ollama is running and the nutrition-analyzer model is available.'
+            });
+        }
+        
+        if (error.response) {
+            console.error('Ollama response error:', error.response.data);
+            return res.status(500).json({ 
+                error: 'AI analysis failed',
+                details: error.response.data?.error || 'Unknown error from AI service'
+            });
+        }
+        
+        return res.status(500).json({ 
+            error: 'Failed to analyze nutrition',
+            details: error.message 
+        });
+    }
+});
+
+// Health check for Ollama service
+app.get('/api/ollama/health', authenticateToken, async (req, res) => {
+    try {
+        const ollamaUrl = `http://${OLLAMA_HOST}:${OLLAMA_PORT}/api/tags`;
+        const response = await axios.get(ollamaUrl, { timeout: 5000 });
+        
+        const hasNutritionModel = response.data.models?.some(model => 
+            model.name === OLLAMA_MODEL || model.name.includes('nutrition')
+        );
+        
+        res.json({
+            status: 'healthy',
+            models: response.data.models || [],
+            hasNutritionModel,
+            recommendedModel: OLLAMA_MODEL
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: 'unhealthy',
+            error: error.message,
+            suggestion: 'Please ensure Ollama is running and the nutrition-analyzer model is available.'
+        });
+    }
 });
 
 // Change admin password

@@ -280,6 +280,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initUserMenu();
     initGoalsEvents();
     initializeFilters();
+    initAutoTracking();
     
     // Display user info
     const userDisplayName = document.getElementById('user-display-name');
@@ -2244,26 +2245,28 @@ async function viewDay(date) {
         // Create day view HTML
         let goalProgressHTML = '';
         if (calorieGoal) {
-            const caloriesLeft = calorieGoal.daily_limit - totalCalories;
-            const calorieProgress = Math.min(100, (totalCalories / calorieGoal.daily_limit) * 100);
+            const calorieProgress = (totalCalories / calorieGoal.daily_limit) * 100;
+            const calorieStatus = calorieProgress >= 100 ? 'success' : calorieProgress >= 80 ? 'warning' : 'danger';
             goalProgressHTML += `
-                <div class="mb-3">
-                    <h6>Calories: ${totalCalories} / ${calorieGoal.daily_limit} (${caloriesLeft > 0 ? caloriesLeft + ' left' : Math.abs(caloriesLeft) + ' over'})</h6>
-                    <div class="progress">
-                        <div class="progress-bar ${caloriesLeft < 0 ? 'bg-danger' : 'bg-success'}" style="width: ${calorieProgress}%"></div>
+                <div class="alert alert-${calorieStatus} mb-2">
+                    <strong>Calorie Goal:</strong> ${totalCalories.toFixed(1)} / ${calorieGoal.daily_limit} 
+                    (${calorieProgress.toFixed(1)}%)
+                    <div class="progress mt-2" style="height: 10px;">
+                        <div class="progress-bar bg-${calorieStatus}" style="width: ${Math.min(calorieProgress, 100)}%"></div>
                     </div>
                 </div>
             `;
         }
         
         if (proteinGoal) {
-            const proteinLeft = proteinGoal.daily_limit - totalProtein;
-            const proteinProgress = Math.min(100, (protein / proteinGoal.daily_limit) * 100);
+            const proteinProgress = (totalProtein / proteinGoal.daily_limit) * 100;
+            const proteinStatus = proteinProgress >= 100 ? 'success' : proteinProgress >= 80 ? 'warning' : 'danger';
             goalProgressHTML += `
-                <div class="mb-3">
-                    <h6>Protein: ${totalProtein}g / ${proteinGoal.daily_limit}g (${proteinLeft > 0 ? proteinLeft + 'g left' : Math.abs(proteinLeft) + 'g over'})</h6>
-                    <div class="progress">
-                        <div class="progress-bar ${proteinLeft < 0 ? 'bg-danger' : 'bg-success'}" style="width: ${proteinProgress}%"></div>
+                <div class="alert alert-${proteinStatus} mb-2">
+                    <strong>Protein Goal:</strong> ${totalProtein.toFixed(1)}g / ${proteinGoal.daily_limit}g 
+                    (${proteinProgress.toFixed(1)}%)
+                    <div class="progress mt-2" style="height: 10px;">
+                        <div class="progress-bar bg-${proteinStatus}" style="width: ${Math.min(proteinProgress, 100)}%"></div>
                     </div>
                 </div>
             `;
@@ -2271,110 +2274,91 @@ async function viewDay(date) {
         
         let mealsHTML = '';
         if (dayData.length === 0) {
-            mealsHTML = '<p class="text-muted">No meals logged for this day.</p>';
+            mealsHTML = '<p class="text-muted">No entries for this day.</p>';
         } else {
+            mealsHTML = '<div class="table-responsive"><table class="table table-sm">';
+            mealsHTML += '<thead><tr><th>Meal</th><th>Protein</th><th>Calories</th><th>Carbs</th><th>Fat</th><th>Notes</th></tr></thead><tbody>';
+            
             dayData.forEach(entry => {
-                const mealTypes = {
-                    'breakfast': 'Breakfast',
-                    'lunch': 'Lunch', 
-                    'dinner': 'Dinner',
-                    'morning_snack': 'Morning Snack',
-                    'evening_snack': 'Evening Snack',
-                    'full_day': 'Full Day'
-                };
-                
-                const mealName = entry.meal_type === 'custom' && entry.meal_name ? 
-                    entry.meal_name : mealTypes[entry.meal_type] || entry.meal_type;
+                let mealDisplay = '';
+                if (entry.meal_type === 'custom' && entry.meal_name) {
+                    mealDisplay = entry.meal_name;
+                } else {
+                    const mealTypes = {
+                        'breakfast': 'Breakfast',
+                        'lunch': 'Lunch', 
+                        'dinner': 'Dinner',
+                        'morning_snack': 'Morning Snack',
+                        'evening_snack': 'Evening Snack',
+                        'full_day': 'Full Day'
+                    };
+                    mealDisplay = mealTypes[entry.meal_type] || entry.meal_type;
+                }
                 
                 mealsHTML += `
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h6 class="card-title">${mealName} ${entry.log_weight ? `(Weight: ${entry.log_weight}kg)` : ''}</h6>
-                            <div class="row">
-                                <div class="col-sm-3">
-                                    <strong>Calories:</strong> ${entry.log_calories}
-                                </div>
-                                <div class="col-sm-3">
-                                    <strong>Protein:</strong> ${entry.log_protein}g
-                                </div>
-                                <div class="col-sm-3">
-                                    <strong>Carbs:</strong> ${entry.log_carbs}g
-                                </div>
-                                <div class="col-sm-3">
-                                    <strong>Fat:</strong> ${entry.log_fat}g
-                                </div>
-                            </div>
-                            ${entry.log_misc_info ? `<p class="mt-2 mb-0"><strong>Notes:</strong> ${entry.log_misc_info}</p>` : ''}
-                        </div>
-                    </div>
+                    <tr>
+                        <td>${mealDisplay}</td>
+                        <td>${entry.log_protein}g</td>
+                        <td>${entry.log_calories}</td>
+                        <td>${entry.log_carbs}g</td>
+                        <td>${entry.log_fat}g</td>
+                        <td>${entry.log_misc_info || '-'}</td>
+                    </tr>
                 `;
             });
+            
+            mealsHTML += '</tbody></table></div>';
         }
         
         const dayWindow = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
         dayWindow.document.write(`
             <html>
                 <head>
-                    <title>Day View - ${new Date(date).toLocaleDateString()}</title>
+                    <title>Day View - ${date}</title>
                     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
                     <style>
-                        body { font-family: 'Inter', sans-serif; background: #f8f9fa; }
-                        .summary-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-                        .goal-progress { background: #e3f2fd; }
+                        body { font-family: 'Inter', sans-serif; padding: 20px; }
+                        .summary-card { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+                        .metric { text-align: center; }
+                        .metric-value { font-size: 2rem; font-weight: bold; color: #2563eb; }
+                        .metric-label { color: #6c757d; font-size: 0.9rem; }
+                        h1 { color: #2563eb; border-bottom: 3px solid #2563eb; padding-bottom: 10px; }
                     </style>
                 </head>
-                <body class="p-4">
-                    <div class="container-fluid">
-                        <h2 class="mb-4">Day Summary - ${new Date(date).toLocaleDateString()}</h2>
-                        
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <div class="card summary-card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Daily Totals</h5>
-                                        <div class="row">
-                                            <div class="col-6">
-                                                <h4>${totalCalories}</h4>
-                                                <small>Calories</small>
-                                            </div>
-                                            <div class="col-6">
-                                                <h4>${totalProtein}g</h4>
-                                                <small>Protein</small>
-                                            </div>
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-6">
-                                                <h4>${totalCarbs}g</h4>
-                                                <small>Carbs</small>
-                                            </div>
-                                            <div class="col-6">
-                                                <h4>${totalFat}g</h4>
-                                                <small>Fat</small>
-                                            </div>
-                                        </div>
-                                        ${weight ? `<div class="mt-2"><h5>Weight: ${weight}kg</h5></div>` : ''}
-                                    </div>
-                                </div>
+                <body>
+                    <h1>Daily Summary - ${new Date(date).toLocaleDateString()}</h1>
+                    
+                    ${weight ? `<div class="alert alert-info"><strong>Weight:</strong> ${weight}kg</div>` : ''}
+                    
+                    <div class="summary-card">
+                        <div class="row">
+                            <div class="col-md-3 metric">
+                                <div class="metric-value">${totalCalories.toFixed(0)}</div>
+                                <div class="metric-label">Total Calories</div>
                             </div>
-                            ${goalProgressHTML ? `
-                                <div class="col-md-6">
-                                    <div class="card goal-progress">
-                                        <div class="card-body">
-                                            <h5 class="card-title">Goal Progress</h5>
-                                            ${goalProgressHTML}
-                                        </div>
-                                    </div>
-                                </div>
-                            ` : ''}
+                            <div class="col-md-3 metric">
+                                <div class="metric-value">${totalProtein.toFixed(1)}</div>
+                                <div class="metric-label">Protein (g)</div>
+                            </div>
+                            <div class="col-md-3 metric">
+                                <div class="metric-value">${totalCarbs.toFixed(1)}</div>
+                                <div class="metric-label">Carbs (g)</div>
+                            </div>
+                            <div class="col-md-3 metric">
+                                <div class="metric-value">${totalFat.toFixed(1)}</div>
+                                <div class="metric-label">Fat (g)</div>
+                            </div>
                         </div>
-                        
-                        <h4 class="mb-3">Meals & Entries</h4>
-                        ${mealsHTML}
-                        
-                        <div class="mt-4">
-                            <button onclick="window.close()" class="btn btn-secondary">Close</button>
-                            <button onclick="window.print()" class="btn btn-primary ms-2">Print</button>
-                        </div>
+                    </div>
+                    
+                    ${goalProgressHTML ? `<h3>Goal Progress</h3>${goalProgressHTML}` : ''}
+                    
+                    <h3>Meal Breakdown</h3>
+                    ${mealsHTML}
+                    
+                    <div class="mt-4">
+                        <button onclick="window.close()" class="btn btn-secondary">Close</button>
+                        <button onclick="window.print()" class="btn btn-primary ms-2">Print</button>
                     </div>
                 </body>
             </html>
@@ -2739,4 +2723,308 @@ function getActiveFilters() {
     if (searchNotes) filters.search_notes = searchNotes;
     
     return filters;
+}
+
+// Auto-tracking functionality
+let isAutoMode = false;
+let pendingAIAnalysis = null;
+
+// Initialize auto-tracking events
+function initAutoTracking() {
+    const manualModeBtn = document.getElementById('manual-mode-btn');
+    const autoModeBtn = document.getElementById('auto-mode-btn');
+    const manualForm = document.getElementById('manual-entry-form');
+    const autoForm = document.getElementById('auto-entry-form');
+    const analyzeFoodBtn = document.getElementById('analyze-food-btn');
+    const confirmAIBtn = document.getElementById('confirm-ai-analysis');
+    const editAIBtn = document.getElementById('edit-ai-analysis');
+    const cancelAIBtn = document.getElementById('cancel-ai-analysis');
+    const autoMealTypeSelect = document.getElementById('autoMealType');
+    const autoCustomMealGroup = document.getElementById('autoCustomMealGroup');
+    const manualSubmitBtn = document.getElementById('manual-submit-btn');
+    
+    // Mode switching
+    if (manualModeBtn && autoModeBtn) {
+        manualModeBtn.addEventListener('click', () => {
+            switchToManualMode();
+        });
+        
+        autoModeBtn.addEventListener('click', () => {
+            switchToAutoMode();
+        });
+    }
+    
+    // Auto meal type handler
+    if (autoMealTypeSelect && autoCustomMealGroup) {
+        autoMealTypeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                autoCustomMealGroup.style.display = 'block';
+            } else {
+                autoCustomMealGroup.style.display = 'none';
+            }
+        });
+    }
+    
+    // AI analysis
+    if (analyzeFoodBtn) {
+        analyzeFoodBtn.addEventListener('click', analyzeFood);
+    }
+    
+    if (confirmAIBtn) {
+        confirmAIBtn.addEventListener('click', confirmAIAnalysis);
+    }
+    
+    if (editAIBtn) {
+        editAIBtn.addEventListener('click', editAIAnalysis);
+    }
+    
+    if (cancelAIBtn) {
+        cancelAIBtn.addEventListener('click', cancelAIAnalysis);
+    }
+    
+    // Set default to manual mode
+    switchToManualMode();
+}
+
+function switchToManualMode() {
+    isAutoMode = false;
+    const manualModeBtn = document.getElementById('manual-mode-btn');
+    const autoModeBtn = document.getElementById('auto-mode-btn');
+    const manualForm = document.getElementById('manual-entry-form');
+    const autoForm = document.getElementById('auto-entry-form');
+    const aiResults = document.getElementById('ai-results');
+    const manualSubmitBtn = document.getElementById('manual-submit-btn');
+    
+    if (manualModeBtn) {
+        manualModeBtn.classList.remove('btn-outline-primary');
+        manualModeBtn.classList.add('btn-primary');
+    }
+    
+    if (autoModeBtn) {
+        autoModeBtn.classList.remove('btn-primary');
+        autoModeBtn.classList.add('btn-outline-primary');
+    }
+    
+    if (manualForm) manualForm.style.display = 'block';
+    if (autoForm) autoForm.style.display = 'none';
+    if (aiResults) aiResults.style.display = 'none';
+    if (manualSubmitBtn) manualSubmitBtn.style.display = 'block';
+    
+    // Clear any pending AI analysis
+    pendingAIAnalysis = null;
+}
+
+function switchToAutoMode() {
+    isAutoMode = true;
+    const manualModeBtn = document.getElementById('manual-mode-btn');
+    const autoModeBtn = document.getElementById('auto-mode-btn');
+    const manualForm = document.getElementById('manual-entry-form');
+    const autoForm = document.getElementById('auto-entry-form');
+    const aiResults = document.getElementById('ai-results');
+    const manualSubmitBtn = document.getElementById('manual-submit-btn');
+    
+    if (manualModeBtn) {
+        manualModeBtn.classList.remove('btn-primary');
+        manualModeBtn.classList.add('btn-outline-primary');
+    }
+    
+    if (autoModeBtn) {
+        autoModeBtn.classList.remove('btn-outline-primary');
+        autoModeBtn.classList.add('btn-primary');
+    }
+    
+    if (manualForm) manualForm.style.display = 'none';
+    if (autoForm) autoForm.style.display = 'block';
+    if (aiResults) aiResults.style.display = 'none';
+    if (manualSubmitBtn) manualSubmitBtn.style.display = 'none';
+    
+    // Set current date for auto form
+    const autoLogDate = document.getElementById('autoLogDate');
+    if (autoLogDate) {
+        const now = new Date();
+        autoLogDate.value = now.toISOString().split('T')[0];
+    }
+}
+
+async function analyzeFood() {
+    const foodDescription = document.getElementById('foodDescription').value.trim();
+    const mealType = document.getElementById('autoMealType').value;
+    const analyzeFoodBtn = document.getElementById('analyze-food-btn');
+    
+    if (!foodDescription) {
+        alert('Please describe what you ate');
+        return;
+    }
+    
+    // Show loading state
+    if (analyzeFoodBtn) {
+        analyzeFoodBtn.disabled = true;
+        analyzeFoodBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+    }
+    
+    try {
+        const response = await apiCall('/analyze-nutrition', {
+            method: 'POST',
+            body: JSON.stringify({
+                description: foodDescription,
+                mealType: mealType
+            })
+        });
+        
+        if (response.success) {
+            displayAIResults(response.nutrition, response.originalDescription);
+        } else {
+            throw new Error(response.error || 'Analysis failed');
+        }
+        
+    } catch (error) {
+        console.error('Error analyzing food:', error);
+        alert('Failed to analyze food: ' + error.message);
+    } finally {
+        // Reset button
+        if (analyzeFoodBtn) {
+            analyzeFoodBtn.disabled = false;
+            analyzeFoodBtn.innerHTML = '<i class="fas fa-brain"></i> Analyze with AI';
+        }
+    }
+}
+
+function displayAIResults(nutrition, originalDescription) {
+    const aiResults = document.getElementById('ai-results');
+    const aiAnalysisNotes = document.getElementById('ai-analysis-notes');
+    const aiProtein = document.getElementById('aiProtein');
+    const aiCalories = document.getElementById('aiCalories');
+    const aiCarbs = document.getElementById('aiCarbs');
+    const aiFat = document.getElementById('aiFat');
+    const aiNotes = document.getElementById('aiNotes');
+    
+    // Store the analysis for later use
+    pendingAIAnalysis = {
+        ...nutrition,
+        originalDescription
+    };
+    
+    // Display results
+    if (aiAnalysisNotes) aiAnalysisNotes.textContent = nutrition.notes || 'AI analysis completed';
+    if (aiProtein) aiProtein.value = nutrition.log_protein;
+    if (aiCalories) aiCalories.value = nutrition.log_calories;
+    if (aiCarbs) aiCarbs.value = nutrition.log_carbs;
+    if (aiFat) aiFat.value = nutrition.log_fat;
+    if (aiNotes) aiNotes.value = nutrition.notes || '';
+    
+    if (aiResults) {
+        aiResults.style.display = 'block';
+        aiResults.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+async function confirmAIAnalysis() {
+    if (!pendingAIAnalysis) {
+        alert('No analysis to confirm');
+        return;
+    }
+    
+    try {
+        const autoLogDate = document.getElementById('autoLogDate').value;
+        const autoMealType = document.getElementById('autoMealType').value;
+        const autoCustomMealName = document.getElementById('autoCustomMealName').value;
+        const autoLogWeight = document.getElementById('autoLogWeight').value;
+        
+        // Get the current values from the AI results (in case user edited them)
+        const aiProtein = parseFloat(document.getElementById('aiProtein').value) || 0;
+        const aiCalories = parseFloat(document.getElementById('aiCalories').value) || 0;
+        const aiCarbs = parseFloat(document.getElementById('aiCarbs').value) || 0;
+        const aiFat = parseFloat(document.getElementById('aiFat').value) || 0;
+        const aiNotes = document.getElementById('aiNotes').value || '';
+        
+        const formData = {
+            log_date: autoLogDate,
+            log_weight: autoLogWeight ? parseFloat(autoLogWeight) : null,
+            log_protein: aiProtein,
+            log_calories: aiCalories,
+            log_carbs: aiCarbs,
+            log_fat: aiFat,
+            log_misc_info: aiNotes,
+            meal_type: autoMealType,
+            meal_name: autoMealType === 'custom' ? autoCustomMealName : null
+        };
+        
+        await apiCall('/weight', {
+            method: 'POST',
+            body: JSON.stringify(formData)
+        });
+        
+        // Update weight goals if weight was logged
+        if (formData.log_weight) {
+            await updateWeightGoalsProgress(formData.log_weight);
+        }
+        
+        // Clear form and reset
+        document.getElementById('foodDescription').value = '';
+        document.getElementById('autoLogWeight').value = '';
+        document.getElementById('autoCustomMealName').value = '';
+        document.getElementById('autoMealType').value = 'breakfast';
+        document.getElementById('autoCustomMealGroup').style.display = 'none';
+        
+        // Set default date to current date again
+        const now = new Date();
+        const dateString = now.toISOString().split('T')[0];
+        document.getElementById('autoLogDate').value = dateString;
+        
+        // Hide AI results
+        document.getElementById('ai-results').style.display = 'none';
+        
+        // Clear pending analysis
+        pendingAIAnalysis = null;
+        
+        // Reload data
+        await loadData();
+        
+        alert('Entry saved successfully!');
+        
+    } catch (error) {
+        console.error('Error saving data:', error);
+        alert('Error saving data: ' + error.message);
+    }
+}
+
+function editAIAnalysis() {
+    // The user can directly edit the values in the form
+    // This function could be used for additional editing features if needed
+    const aiProtein = document.getElementById('aiProtein');
+    if (aiProtein) aiProtein.focus();
+}
+
+function cancelAIAnalysis() {
+    const aiResults = document.getElementById('ai-results');
+    if (aiResults) aiResults.style.display = 'none';
+    
+    pendingAIAnalysis = null;
+    
+    // Clear the food description
+    const foodDescription = document.getElementById('foodDescription');
+    if (foodDescription) foodDescription.value = '';
+}
+
+// Helper function to update weight goals progress
+async function updateWeightGoalsProgress(newWeight) {
+    try {
+        const goals = await apiCall('/goals');
+        const weightGoals = goals.filter(g => 
+            (g.goal_type === 'weight_loss' || g.goal_type === 'weight_gain' || g.goal_type === 'maintenance') 
+            && g.status === 'active'
+        );
+        
+        for (const goal of weightGoals) {
+            await apiCall(`/goals/${goal.id}/progress`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    recorded_value: newWeight,
+                    notes: `Weight logged via auto-tracking: ${newWeight}kg`
+                })
+            });
+        }
+    } catch (error) {
+        console.error('Error updating weight goals:', error);
+    }
 }
