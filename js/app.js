@@ -485,87 +485,108 @@ if (importDataBtn && importFileInput) {
 }
 
 // Form submission handler
-weightForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    // Only process manual form submission when in manual mode
-    if (isAutoMode) {
-        console.log('Form submission blocked - currently in auto mode');
-        return;
-    }
-    
-    // Check if manual form fields are valid
-    const logDate = document.getElementById('logDate');
-    const mealType = document.getElementById('mealType');
-    const logProtein = document.getElementById('logProtein');
-    const logCalories = document.getElementById('logCalories');
-    const logCarbs = document.getElementById('logCarbs');
-    const logFat = document.getElementById('logFat');
-    
-    if (!logDate.value || !mealType.value || 
-        logProtein.value === '' || logCalories.value === '' || 
-        logCarbs.value === '' || logFat.value === '') {
-        alert('Please fill in all required fields');
-        return;
-    }
-    
-    try {
-        const mealTypeValue = document.getElementById('mealType').value;
-        const customMealName = document.getElementById('customMealName').value;
+if (weightForm) {
+    weightForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        const formData = {
-            log_date: document.getElementById('logDateHidden').value,
-            log_protein: parseFloat(document.getElementById('logProtein').value) || 0,
-            log_calories: parseFloat(document.getElementById('logCalories').value) || 0,
-            log_carbs: parseFloat(document.getElementById('logCarbs').value) || 0,
-            log_fat: parseFloat(document.getElementById('logFat').value) || 0,
-            log_misc_info: document.getElementById('logMiscInfo').value || "",
-            meal_type: mealTypeValue,
-            meal_name: mealTypeValue === 'custom' ? customMealName : null
-        };
+        // Only process manual form submission when in manual mode
+        if (isAutoMode) {
+            console.log('Form submission blocked - currently in auto mode');
+            return;
+        }
+        
+        // Check if manual form fields exist and are valid
+        const logDateHidden = document.getElementById('logDateHidden');
+        const mealType = document.getElementById('mealType');
+        const logProtein = document.getElementById('logProtein');
+        const logCalories = document.getElementById('logCalories');
+        const logCarbs = document.getElementById('logCarbs');
+        const logFat = document.getElementById('logFat');
+        
+        if (!logDateHidden || !mealType || !logProtein || !logCalories || !logCarbs || !logFat) {
+            alert('Form elements not found. Please reload the page.');
+            return;
+        }
+        
+        if (!logDateHidden.value || !mealType.value || 
+            logProtein.value === '' || logCalories.value === '' || 
+            logCarbs.value === '' || logFat.value === '') {
+            alert('Please fill in all required fields');
+            return;
+        }
+    
+        try {
+            const mealTypeValue = document.getElementById('mealType').value;
+            const customMealName = document.getElementById('customMealName').value;
+            
+            const formData = {
+                log_date: document.getElementById('logDateHidden').value,
+                log_protein: parseFloat(document.getElementById('logProtein').value) || 0,
+                log_calories: parseFloat(document.getElementById('logCalories').value) || 0,
+                log_carbs: parseFloat(document.getElementById('logCarbs').value) || 0,
+                log_fat: parseFloat(document.getElementById('logFat').value) || 0,
+                log_misc_info: document.getElementById('logMiscInfo').value || "",
+                meal_type: mealTypeValue,
+                meal_name: mealTypeValue === 'custom' ? customMealName : null
+            };
 
-        await apiCall('/weight', {
-            method: 'POST',
-            body: JSON.stringify(formData)
-        });
-        
-        // Reset form
-        weightForm.reset();
-        
-        // Set default values for numeric inputs
-        document.getElementById('logProtein').value = '0';
-        document.getElementById('logCalories').value = '0';
-        document.getElementById('logCarbs').value = '0';
-        document.getElementById('logFat').value = '0';
-        document.getElementById('mealType').value = 'breakfast';
-        document.getElementById('customMealGroup').style.display = 'none';
-        
-        // Reset goal progress display
-        updateGoalProgressDisplay();
-        
-        // Reload day data to show new meal
-        await loadDayData(currentDate);
-        
-        // Reload data
-        await loadData();
-        
-        alert('Entry saved successfully!');
-    } catch (error) {
-        console.error('Error saving data:', error);
-        alert('Error saving data: ' + error.message);
-    }
-});
+            await apiCall('/weight', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+            
+            // Reset form
+            weightForm.reset();
+            
+            // Set default values for numeric inputs
+            document.getElementById('logProtein').value = '0';
+            document.getElementById('logCalories').value = '0';
+            document.getElementById('logCarbs').value = '0';
+            document.getElementById('logFat').value = '0';
+            document.getElementById('mealType').value = 'breakfast';
+            document.getElementById('customMealGroup').style.display = 'none';
+            
+            // Reset goal progress display
+            updateGoalProgressDisplay();
+            
+            // Reload day data to show new meal
+            await loadDayData(currentDate);
+            
+            // Reload data
+            await loadData();
+            
+            alert('Entry saved successfully!');
+        } catch (error) {
+            console.error('Error saving data:', error);
+            alert('Error saving data: ' + error.message);
+        }
+    });
+}
 
 // Weight entry form submission handler
 if (weightEntryForm) {
     weightEntryForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        const weightDateHidden = document.getElementById('weightDateHidden');
+        const weightValue = document.getElementById('weightValue');
+        const weightNotes = document.getElementById('weightNotes');
+        
+        if (!weightDateHidden || !weightValue) {
+            alert('Required form elements not found. Please reload the page.');
+            return;
+        }
+        
+        if (!weightDateHidden.value || !weightValue.value) {
+            alert('Please fill in the required fields.');
+            return;
+        }
+        
         try {
             const formData = {
-                log_date: document.getElementById('weightDateHidden').value,
-                weight: parseFloat(document.getElementById('weightValue').value),
-                notes: document.getElementById('weightNotes').value || ""
+                log_date: weightDateHidden.value,
+                weight: parseFloat(weightValue.value),
+                notes: weightNotes ? weightNotes.value || "" : ""
             };
 
             await apiCall('/weight-entries', {
@@ -3039,25 +3060,31 @@ async function confirmAIAnalysis() {
     }
     
     try {
-        const autoMealType = document.getElementById('autoMealType').value;
-        const autoCustomMealName = document.getElementById('autoCustomMealName').value;
+        const autoMealType = document.getElementById('autoMealType');
+        const autoCustomMealName = document.getElementById('autoCustomMealName');
+        const logDateHidden = document.getElementById('logDateHidden');
+        
+        if (!autoMealType || !logDateHidden) {
+            alert('Required form elements not found. Please reload the page.');
+            return;
+        }
         
         // Get the current values from the AI results (in case user edited them)
-        const aiProtein = parseFloat(document.getElementById('aiProtein').value) || 0;
-        const aiCalories = parseFloat(document.getElementById('aiCalories').value) || 0;
-        const aiCarbs = parseFloat(document.getElementById('aiCarbs').value) || 0;
-        const aiFat = parseFloat(document.getElementById('aiFat').value) || 0;
-        const aiNotes = document.getElementById('aiNotes').value || '';
+        const aiProtein = parseFloat(document.getElementById('aiProtein')?.value) || 0;
+        const aiCalories = parseFloat(document.getElementById('aiCalories')?.value) || 0;
+        const aiCarbs = parseFloat(document.getElementById('aiCarbs')?.value) || 0;
+        const aiFat = parseFloat(document.getElementById('aiFat')?.value) || 0;
+        const aiNotes = document.getElementById('aiNotes')?.value || '';
         
         const formData = {
-            log_date: document.getElementById('logDateHidden').value,
+            log_date: logDateHidden.value,
             log_protein: aiProtein,
             log_calories: aiCalories,
             log_carbs: aiCarbs,
             log_fat: aiFat,
             log_misc_info: aiNotes,
-            meal_type: autoMealType,
-            meal_name: autoMealType === 'custom' ? autoCustomMealName : null
+            meal_type: autoMealType.value,
+            meal_name: autoMealType.value === 'custom' ? (autoCustomMealName?.value || '') : null
         };
         
         await apiCall('/weight', {
@@ -3066,13 +3093,17 @@ async function confirmAIAnalysis() {
         });
         
         // Clear form and reset
-        document.getElementById('foodDescription').value = '';
-        document.getElementById('autoCustomMealName').value = '';
-        document.getElementById('autoMealType').value = 'breakfast';
-        document.getElementById('autoCustomMealGroup').style.display = 'none';
+        const foodDescription = document.getElementById('foodDescription');
+        if (foodDescription) foodDescription.value = '';
+        if (autoCustomMealName) autoCustomMealName.value = '';
+        autoMealType.value = 'breakfast';
+        
+        const autoCustomMealGroup = document.getElementById('autoCustomMealGroup');
+        if (autoCustomMealGroup) autoCustomMealGroup.style.display = 'none';
         
         // Hide AI results
-        document.getElementById('ai-results').style.display = 'none';
+        const aiResults = document.getElementById('ai-results');
+        if (aiResults) aiResults.style.display = 'none';
         
         // Clear pending analysis
         pendingAIAnalysis = null;
