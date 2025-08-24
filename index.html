@@ -1005,12 +1005,8 @@
                 <div class="nav-section">
                     <div class="nav-section-title">Data Management</div>
                     <a href="#" class="nav-item" data-section="data-entry">
-                        <i class="fas fa-plus-circle"></i>
-                        <span>Log Entry</span>
-                    </a>
-                    <a href="#" class="nav-item" data-section="history">
-                        <i class="fas fa-history"></i>
-                        <span>History</span>
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Daily Log</span>
                     </a>
                 </div>
 
@@ -1162,25 +1158,121 @@
                 <!-- Data Entry Section -->
                 <section id="data-entry-content" class="content-section" style="display: none;">
                     <div class="section-header">
-                        <h1 class="section-title">Log New Entry</h1>
+                        <h1 class="section-title">Daily Log</h1>
+                        <div class="quick-actions">
+                            <button class="btn btn-outline-primary" id="today-btn">
+                                <i class="fas fa-calendar-day"></i>
+                                Today
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Weight Tracking Section -->
+                    <!-- Calendar Navigation -->
                     <div class="card mb-4">
                         <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-weight-hanging"></i>
-                                Weight Tracking
-                            </h3>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h3 class="card-title mb-0">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    Select Date
+                                </h3>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-outline-secondary" id="prev-day">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <input type="date" class="form-control" id="calendar-date" style="width: auto;">
+                                    <button class="btn btn-outline-secondary" id="next-day">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
+                    </div>
+
+                    <!-- Daily Overview -->
+                    <div id="daily-overview" class="mb-4">
+                        <!-- Weight Display -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-weight"></i>
+                                    Weight for <span id="selected-date-display"></span>
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="weight-display" class="text-center">
+                                    <div id="current-weight-display" class="h3 text-primary mb-0">--</div>
+                                    <small class="text-muted">No weight logged</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Goals Progress -->
+                        <div class="card mb-3" id="goals-progress-card" style="display: none;">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-bullseye"></i>
+                                    Goals Progress
+                                </h5>
+                            </div>
+                            <div class="card-body" id="daily-goals-progress">
+                                <!-- Goals progress will be displayed here -->
+                            </div>
+                        </div>
+
+                        <!-- Meals Summary -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-utensils"></i>
+                                    Meals Summary
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Daily totals -->
+                                <div class="row mb-3">
+                                    <div class="col-md-3 text-center">
+                                        <div class="h4 text-success mb-0" id="daily-total-calories">0</div>
+                                        <small class="text-muted">Calories</small>
+                                    </div>
+                                    <div class="col-md-3 text-center">
+                                        <div class="h4 text-info mb-0" id="daily-total-protein">0g</div>
+                                        <small class="text-muted">Protein</small>
+                                    </div>
+                                    <div class="col-md-3 text-center">
+                                        <div class="h4 text-warning mb-0" id="daily-total-carbs">0g</div>
+                                        <small class="text-muted">Carbs</small>
+                                    </div>
+                                    <div class="col-md-3 text-center">
+                                        <div class="h4 text-danger mb-0" id="daily-total-fat">0g</div>
+                                        <small class="text-muted">Fat</small>
+                                    </div>
+                                </div>
+
+                                <!-- Meals list -->
+                                <div id="daily-meals-list">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-utensils fa-2x mb-2"></i>
+                                        <div>No meals logged for this date</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logging Section -->
+                    <div class="row">
+                        <!-- Weight Logging -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="fas fa-weight-hanging"></i>
+                                        Log Weight
+                                    </h3>
+                                </div>
+                                <div class="card-body">
                                     <form id="weight-entry-form">
-                                        <div class="form-group">
-                                            <label for="weightDate" class="form-label">Date</label>
-                                            <input type="date" class="form-control" id="weightDate" required>
-                                        </div>
+                                        <input type="hidden" id="weightDateHidden">
                                         <div class="form-group">
                                             <label for="weightValue" class="form-label">Weight (kg)</label>
                                             <input type="number" class="form-control" id="weightValue" step="0.1" required>
@@ -1189,7 +1281,7 @@
                                             <label for="weightNotes" class="form-label">Notes (Optional)</label>
                                             <textarea class="form-control" id="weightNotes" rows="2" placeholder="How are you feeling today?"></textarea>
                                         </div>
-                                        <button type="submit" class="btn btn-success">
+                                        <button type="submit" class="btn btn-success w-100">
                                             <i class="fas fa-save"></i>
                                             Log Weight
                                         </button>
@@ -1197,38 +1289,34 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Nutrition Logging Section -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-utensils"></i>
-                                Nutrition Logging
-                            </h3>
-                        </div>
-                        <div class="card-body">
-                            <!-- Entry Mode Toggle -->
-                            <div class="d-flex gap-3 mb-4">
-                                <button type="button" class="btn btn-outline-primary" id="manual-mode-btn">
-                                    <i class="fas fa-keyboard"></i>
-                                    Manual Entry
-                                </button>
-                                <button type="button" class="btn btn-primary" id="auto-mode-btn">
-                                    <i class="fas fa-magic"></i>
-                                    Auto Log
-                                </button>
-                            </div>
+                        <!-- Nutrition Logging -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="fas fa-utensils"></i>
+                                        Log Meal
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <!-- Entry Mode Toggle -->
+                                    <div class="d-flex gap-3 mb-4">
+                                        <button type="button" class="btn btn-outline-primary" id="manual-mode-btn">
+                                            <i class="fas fa-keyboard"></i>
+                                            Manual Entry
+                                        </button>
+                                        <button type="button" class="btn btn-primary" id="auto-mode-btn">
+                                            <i class="fas fa-magic"></i>
+                                            Auto Log
+                                        </button>
+                                    </div>
 
-                            <form id="weight-form">
-                                <!-- Manual Entry Form -->
-                                <div id="manual-entry-form">
-                                    <div class="data-grid">
-                                        <div>
-                                            <div class="form-group">
-                                                <label for="logDate" class="form-label">Date</label>
-                                                <input type="date" class="form-control" id="logDate" required>
-                                            </div>
+                                    <form id="weight-form">
+                                        <input type="hidden" id="logDateHidden">
+                                        
+                                        <!-- Manual Entry Form -->
+                                        <div id="manual-entry-form">
                                             <div class="form-group">
                                                 <label for="mealType" class="form-label">Meal Type</label>
                                                 <select class="form-control" id="mealType" required>
@@ -1244,43 +1332,42 @@
                                                 <label for="customMealName" class="form-label">Custom Meal Name</label>
                                                 <input type="text" class="form-control" id="customMealName" placeholder="e.g., Late Night Snack">
                                             </div>
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <div class="form-group">
+                                                        <label for="logProtein" class="form-label">Protein (g)</label>
+                                                        <input type="number" class="form-control" id="logProtein" step="0.1" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-group">
+                                                        <label for="logCalories" class="form-label">Calories</label>
+                                                        <input type="number" class="form-control" id="logCalories" step="0.1" required>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <div class="form-group">
+                                                        <label for="logCarbs" class="form-label">Carbs (g)</label>
+                                                        <input type="number" class="form-control" id="logCarbs" step="0.1" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-group">
+                                                        <label for="logFat" class="form-label">Fat (g)</label>
+                                                        <input type="number" class="form-control" id="logFat" step="0.1" required>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="logMiscInfo" class="form-label">Notes</label>
+                                                <textarea class="form-control" id="logMiscInfo" rows="2" placeholder="Optional notes..."></textarea>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div class="form-group">
-                                                <label for="logProtein" class="form-label">Protein (g)</label>
-                                                <input type="number" class="form-control" id="logProtein" step="0.1" required>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="logCalories" class="form-label">Calories</label>
-                                                <input type="number" class="form-control" id="logCalories" step="0.1" required>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="logCarbs" class="form-label">Carbs (g)</label>
-                                                <input type="number" class="form-control" id="logCarbs" step="0.1" required>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="logFat" class="form-label">Fat (g)</label>
-                                                <input type="number" class="form-control" id="logFat" step="0.1" required>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="logMiscInfo" class="form-label">Additional Notes</label>
-                                        <textarea class="form-control" id="logMiscInfo" rows="3" placeholder="Optional notes about your day..."></textarea>
-                                    </div>
-                                </div>
 
-                                <!-- Auto Entry Form -->
-                                <div id="auto-entry-form" style="display: none;">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="autoLogDate" class="form-label">Date</label>
-                                                <input type="date" class="form-control" id="autoLogDate">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
+                                        <!-- Auto Entry Form -->
+                                        <div id="auto-entry-form" style="display: none;">
                                             <div class="form-group">
                                                 <label for="autoMealType" class="form-label">Meal Type</label>
                                                 <select class="form-control" id="autoMealType">
@@ -1292,227 +1379,92 @@
                                                     <option value="custom">Custom</option>
                                                 </select>
                                             </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-group" id="autoCustomMealGroup" style="display: none;">
-                                        <label for="autoCustomMealName" class="form-label">Custom Meal Name</label>
-                                        <input type="text" class="form-control" id="autoCustomMealName" placeholder="e.g., Late Night Snack">
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="foodDescription" class="form-label">
-                                            Describe What You Ate
-                                            <small class="text-muted d-block">Be as detailed as possible. Include cooking methods, portion sizes, and any sauces or toppings.</small>
-                                        </label>
-                                        <textarea class="form-control" id="foodDescription" rows="4" 
-                                                placeholder="Example: 2 scrambled eggs with 1 slice of buttered toast, 1 cup of coffee with milk and sugar, and a medium banana"></textarea>
-                                    </div>
-                                    
-                                    <button type="button" class="btn btn-success" id="analyze-food-btn">
-                                        <i class="fas fa-brain"></i>
-                                        Analyze with AI
-                                    </button>
-                                </div>
-
-                                <!-- AI Analysis Results -->
-                                <div id="ai-results" style="display: none; margin-top: 20px;">
-                                    <div class="card border-success">
-                                        <div class="card-header bg-success text-white">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-check-circle"></i>
-                                                AI Analysis Results
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <p class="mb-3"><strong>Analysis:</strong> <span id="ai-analysis-notes"></span></p>
                                             
-                                            <div class="row">
-                                                <div class="col-md-3">
-                                                    <div class="form-group">
-                                                        <label for="aiProtein" class="form-label">Protein (g)</label>
-                                                        <input type="number" class="form-control" id="aiProtein" step="0.1">
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="form-group">
-                                                        <label for="aiCalories" class="form-label">Calories</label>
-                                                        <input type="number" class="form-control" id="aiCalories" step="0.1">
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="form-group">
-                                                        <label for="aiCarbs" class="form-label">Carbs (g)</label>
-                                                        <input type="number" class="form-control" id="aiCarbs" step="0.1">
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="form-group">
-                                                        <label for="aiFat" class="form-label">Fat (g)</label>
-                                                        <input type="number" class="form-control" id="aiFat" step="0.1">
-                                                    </div>
-                                                </div>
+                                            <div class="form-group" id="autoCustomMealGroup" style="display: none;">
+                                                <label for="autoCustomMealName" class="form-label">Custom Meal Name</label>
+                                                <input type="text" class="form-control" id="autoCustomMealName" placeholder="e.g., Late Night Snack">
                                             </div>
                                             
                                             <div class="form-group">
-                                                <label for="aiNotes" class="form-label">Notes</label>
-                                                <textarea class="form-control" id="aiNotes" rows="2"></textarea>
+                                                <label for="foodDescription" class="form-label">
+                                                    Describe What You Ate
+                                                    <small class="text-muted d-block">Be as detailed as possible with portion sizes and cooking methods.</small>
+                                                </label>
+                                                <textarea class="form-control" id="foodDescription" rows="3" 
+                                                        placeholder="Example: 2 scrambled eggs with 1 slice of buttered toast and a medium banana"></textarea>
                                             </div>
                                             
-                                            <div class="d-flex gap-2">
-                                                <button type="button" class="btn btn-primary" id="confirm-ai-analysis">
-                                                    <i class="fas fa-check"></i>
-                                                    Confirm & Log
-                                                </button>
-                                                <button type="button" class="btn btn-secondary" id="edit-ai-analysis">
-                                                    <i class="fas fa-edit"></i>
-                                                    Edit Values
-                                                </button>
-                                                <button type="button" class="btn btn-outline-danger" id="cancel-ai-analysis">
-                                                    <i class="fas fa-times"></i>
-                                                    Cancel
-                                                </button>
+                                            <button type="button" class="btn btn-success w-100" id="analyze-food-btn">
+                                                <i class="fas fa-brain"></i>
+                                                Analyze with AI
+                                            </button>
+                                        </div>
+
+                                        <!-- AI Analysis Results -->
+                                        <div id="ai-results" style="display: none; margin-top: 20px;">
+                                            <div class="card border-success">
+                                                <div class="card-header bg-success text-white">
+                                                    <h6 class="mb-0">
+                                                        <i class="fas fa-check-circle"></i>
+                                                        AI Analysis Results
+                                                    </h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <p class="mb-3"><strong>Analysis:</strong> <span id="ai-analysis-notes"></span></p>
+                                                    
+                                                    <div class="row">
+                                                        <div class="col-6">
+                                                            <div class="form-group">
+                                                                <label for="aiProtein" class="form-label">Protein (g)</label>
+                                                                <input type="number" class="form-control" id="aiProtein" step="0.1">
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="form-group">
+                                                                <label for="aiCalories" class="form-label">Calories</label>
+                                                                <input type="number" class="form-control" id="aiCalories" step="0.1">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row">
+                                                        <div class="col-6">
+                                                            <div class="form-group">
+                                                                <label for="aiCarbs" class="form-label">Carbs (g)</label>
+                                                                <input type="number" class="form-control" id="aiCarbs" step="0.1">
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="form-group">
+                                                                <label for="aiFat" class="form-label">Fat (g)</label>
+                                                                <input type="number" class="form-control" id="aiFat" step="0.1">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="form-group">
+                                                        <label for="aiNotes" class="form-label">Notes</label>
+                                                        <textarea class="form-control" id="aiNotes" rows="2"></textarea>
+                                                    </div>
+                                                    
+                                                    <div class="d-flex gap-2">
+                                                        <button type="button" class="btn btn-primary flex-fill" id="confirm-ai-analysis">
+                                                            <i class="fas fa-check"></i>
+                                                            Confirm & Log
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-danger" id="cancel-ai-analysis">
+                                                            <i class="fas fa-times"></i>
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Goal Progress Display -->
-                                <div id="goal-progress-display" style="display: none; margin-bottom: 20px;">
-                                </div>
-                                
-                                <button type="submit" class="btn btn-primary btn-lg" id="manual-submit-btn">
-                                    <i class="fas fa-save"></i>
-                                    Save Entry
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- History Section -->
-                <section id="history-content" class="content-section" style="display: none;">
-                    <div class="section-header">
-                        <h1 class="section-title">Entry History</h1>
-                    </div>
-
-                    <!-- Filter Section -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="card-title">
-                                <i class="fas fa-filter"></i>
-                                Filter Entries
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-md-3">
-                                    <label for="filterMealType" class="form-label">Meal Type</label>
-                                    <select class="form-control" id="filterMealType">
-                                        <option value="">All Meals</option>
-                                        <option value="breakfast">Breakfast</option>
-                                        <option value="lunch">Lunch</option>
-                                        <option value="dinner">Dinner</option>
-                                        <option value="morning_snack">Morning Snack</option>
-                                        <option value="evening_snack">Evening Snack</option>
-                                        <option value="custom">Custom</option>
-                                        <option value="full_day">Full Day (Legacy)</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label for="filterDateFrom" class="form-label">From Date</label>
-                                    <input type="date" class="form-control" id="filterDateFrom">
-                                </div>
-                                <div class="col-md-3">
-                                    <label for="filterDateTo" class="form-label">To Date</label>
-                                    <input type="date" class="form-control" id="filterDateTo">
-                                </div>
-                            </div>
-                            <div class="row g-3 mt-2">
-                                <div class="col-md-3">
-                                    <label for="filterMinCalories" class="form-label">Min Calories</label>
-                                    <input type="number" class="form-control" id="filterMinCalories" placeholder="0">
-                                </div>
-                                <div class="col-md-3">
-                                    <label for="filterMaxCalories" class="form-label">Max Calories</label>
-                                    <input type="number" class="form-control" id="filterMaxCalories" placeholder="9999">
-                                </div>
-                                <div class="col-md-3">
-                                    <label for="filterMinProtein" class="form-label">Min Protein (g)</label>
-                                    <input type="number" class="form-control" id="filterMinProtein" placeholder="0">
-                                </div>
-                                <div class="col-md-3">
-                                    <label for="filterSearchNotes" class="form-label">Search Notes</label>
-                                    <input type="text" class="form-control" id="filterSearchNotes" placeholder="Search in notes...">
-                                </div>
-                            </div>
-                            <div class="d-flex gap-2 mt-3">
-                                <button type="button" class="btn btn-primary" id="applyFilters">
-                                    <i class="fas fa-search"></i>
-                                    Apply Filters
-                                </button>
-                                <button type="button" class="btn btn-secondary" id="clearFilters">
-                                    <i class="fas fa-times"></i>
-                                    Clear Filters
-                                </button>
-                                <button type="button" class="btn btn-info" id="exportFilteredData">
-                                    <i class="fas fa-download"></i>
-                                    Export Filtered
-                                </button>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-muted" id="filterResultsCount">Showing all entries</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="data-table-wrapper">
-                        <div class="table-header">
-                            <h3 class="table-title">Nutrition Log</h3>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Meal</th>
-                                        <th>Protein (g)</th>
-                                        <th>Calories</th>
-                                        <th>Carbs (g)</th>
-                                        <th>Fat (g)</th>
-                                        <th>Notes</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="data-table-body">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Weight History Section -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="fas fa-weight me-2"></i>Weight History
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="data-table-wrapper">
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Weight</th>
-                                                <th>Notes</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="weight-history-table-body">
-                                            <!-- Weight data will be loaded here -->
-                                        </tbody>
-                                    </table>
+                                        
+                                        <button type="submit" class="btn btn-primary w-100" id="manual-submit-btn">
+                                            <i class="fas fa-save"></i>
+                                            Save Entry
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         </div>

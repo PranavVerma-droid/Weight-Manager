@@ -17,6 +17,7 @@ let goalsData = [];
 
 // Navigation state
 let currentSection = 'nutrition';
+let currentDate = new Date(); // Track current selected date
 
 // DOM elements
 const weightForm = document.getElementById('weight-form');
@@ -107,8 +108,7 @@ function updateBreadcrumb(sectionName) {
         'nutrition': 'Nutrition Analytics',
         'workouts': 'Workout Analytics',
         'goals': 'Goals & Progress',
-        'data-entry': 'Log Entry',
-        'history': 'History'
+        'data-entry': 'Daily Log'
     };
     
     if (breadcrumb) {
@@ -129,11 +129,7 @@ function loadSectionData(sectionName) {
             loadGoalsData();
             break;
         case 'data-entry':
-            updateGoalProgressDisplay();
-            break;
-        case 'history':
-            loadData(); // This loads nutrition data
-            loadWeightHistory(); // Load weight data for history section
+            initializeCalendarInterface();
             break;
     }
 }
@@ -313,14 +309,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Set default date to current date (no time)
     const now = new Date();
     const dateString = now.toISOString().split('T')[0];
-    const logDateElement = document.getElementById('logDate');
-    const weightDateElement = document.getElementById('weightDate');
-    if (logDateElement) {
-        logDateElement.value = dateString;
-    }
-    if (weightDateElement) {
-        weightDateElement.value = dateString;
-    }
     
     // Set default values for nutrition inputs
     const logProteinElement = document.getElementById('logProtein');
@@ -526,7 +514,7 @@ weightForm.addEventListener('submit', async (e) => {
         const customMealName = document.getElementById('customMealName').value;
         
         const formData = {
-            log_date: document.getElementById('logDate').value,
+            log_date: document.getElementById('logDateHidden').value,
             log_protein: parseFloat(document.getElementById('logProtein').value) || 0,
             log_calories: parseFloat(document.getElementById('logCalories').value) || 0,
             log_carbs: parseFloat(document.getElementById('logCarbs').value) || 0,
@@ -552,13 +540,11 @@ weightForm.addEventListener('submit', async (e) => {
         document.getElementById('mealType').value = 'breakfast';
         document.getElementById('customMealGroup').style.display = 'none';
         
-        // Set default date to current date again
-        const now = new Date();
-        const dateString = now.toISOString().split('T')[0];
-        document.getElementById('logDate').value = dateString;
-        
         // Reset goal progress display
         updateGoalProgressDisplay();
+        
+        // Reload day data to show new meal
+        await loadDayData(currentDate);
         
         // Reload data
         await loadData();
@@ -577,7 +563,7 @@ if (weightEntryForm) {
         
         try {
             const formData = {
-                log_date: document.getElementById('weightDate').value,
+                log_date: document.getElementById('weightDateHidden').value,
                 weight: parseFloat(document.getElementById('weightValue').value),
                 notes: document.getElementById('weightNotes').value || ""
             };
@@ -593,12 +579,9 @@ if (weightEntryForm) {
             // Reset form
             weightEntryForm.reset();
             
-            // Set date to current date
-            const now = new Date();
-            const dateString = now.toISOString().split('T')[0];
-            document.getElementById('weightDate').value = dateString;
-
-            await loadWeightEntries();
+            // Reload day data to show updated weight
+            await loadDayData(currentDate);
+            
             await loadData(); // Reload to update charts and display
             updateStats();
             alert('Weight logged successfully!');
@@ -614,18 +597,15 @@ async function loadData() {
     try {
         const records = await apiCall('/weight');
         
-        // Store all records for filtering
+        // Store all records for filtering (keep for compatibility)
         allRecords = records;
-        filteredRecords = [...records]; // Initialize filtered records with all records
-        
-        displayTableData(filteredRecords);
+        filteredRecords = [...records];
         
         // Load daily summary for charts
         const summaryData = await apiCall('/weight/daily-summary');
         renderWeightChart();
         renderNutritionChart(summaryData);
         
-        updateFilterResultsCount();
     } catch (error) {
         console.error('Error loading data:', error);
     }
@@ -746,70 +726,6 @@ async function deleteWeightEntry(id) {
     }
 }
 
-// Display data in table
-function displayTableData(items) {
-    dataTableBody.innerHTML = '';
-    
-    items.forEach((item, index) => {
-        const row = document.createElement('tr');
-        
-        // Format date for display
-        const date = new Date(item.log_date);
-        const formattedDate = date.toLocaleDateString();
-        
-        // Format meal display
-        let mealDisplay = '';
-        if (item.meal_type === 'custom' && item.meal_name) {
-            mealDisplay = item.meal_name;
-        } else {
-            const mealTypes = {
-                'breakfast': 'Breakfast',
-                'lunch': 'Lunch',
-                'dinner': 'Dinner',
-                'morning_snack': 'Morning Snack',
-                'evening_snack': 'Evening Snack',
-                'full_day': 'Full Day'
-            };
-            mealDisplay = mealTypes[item.meal_type] || item.meal_type;
-        }
-        
-        // Create a unique ID for the collapse element
-        const collapseId = `note-collapse-${index}`;
-        
-        // Check if there are notes to show the collapse button
-        const hasNotes = item.log_misc_info && item.log_misc_info.trim() !== '';
-        const notesButton = hasNotes ? 
-            `<button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
-                Show Notes
-            </button>` : 
-            '<span class="text-muted">No notes</span>';
-        
-        row.innerHTML = `
-            <td>${formattedDate}</td>
-            <td><span class="badge bg-secondary">${mealDisplay}</span></td>
-            <td>${item.log_protein}</td>
-            <td>${item.log_calories}</td>
-            <td>${item.log_carbs}</td>
-            <td>${item.log_fat}</td>
-            <td>
-                ${notesButton}
-                <div class="collapse mt-2" id="${collapseId}">
-                    <div class="card card-body">
-                        ${item.log_misc_info || ''}
-                    </div>
-                </div>
-            </td>
-            <td>
-                <button class="btn btn-sm btn-primary me-1" onclick="editEntry('${item.id}')">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteEntry('${item.id}')">Delete</button>
-                <button class="btn btn-sm btn-info" onclick="viewDay('${item.log_date}')">View Day</button>
-            </td>
-        `;
-        
-        dataTableBody.appendChild(row);
-    });
-}
-
 // Edit an entry
 async function editEntry(id) {
     try {
@@ -881,6 +797,9 @@ document.getElementById('saveEditBtn').addEventListener('click', async () => {
         // Hide the modal
         const editModal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
         editModal.hide();
+        
+        // Reload day data to show new meal
+        await loadDayData(currentDate);
         
         // Reload data
         await loadData();
@@ -2468,7 +2387,7 @@ async function viewDay(date) {
             const statusText = calorieProgress >= 100 ? 'Goal met!' : `${(100 - calorieProgress).toFixed(1)}% to goal`;
             goalProgressHTML += `
                 <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between">
                         <div>
                             <strong>Calorie Goal</strong>
                             <div class="progress" style="height: 10px;">
@@ -2492,7 +2411,7 @@ async function viewDay(date) {
             const statusText = proteinProgress >= 100 ? 'Goal met!' : `${(100 - proteinProgress).toFixed(1)}% to goal`;
             goalProgressHTML += `
                 <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between">
                         <div>
                             <strong>Protein Goal</strong>
                             <div class="progress" style="height: 10px;">
@@ -2679,10 +2598,8 @@ async function getCurrentValueForGoal(goal) {
 function updateGoalProgressDisplay() {
     const caloriesInput = document.getElementById('logCalories');
     const proteinInput = document.getElementById('logProtein');
-    const progressDisplay = document.getElementById('goal-progress-display');
-    const progressContent = document.getElementById('goal-progress-content');
     
-    if (!caloriesInput || !proteinInput || !progressDisplay || !progressContent) return;
+    if (!caloriesInput || !proteinInput) return;
     
     const calories = parseFloat(caloriesInput.value) || 0;
     const protein = parseFloat(proteinInput.value) || 0;
@@ -2691,92 +2608,17 @@ function updateGoalProgressDisplay() {
     const calorieGoal = goalsData.find(g => g.goal_type === 'calorie' && g.status === 'active');
     const proteinGoal = goalsData.find(g => g.goal_type === 'protein' && g.status === 'active');
     
-    let hasActiveGoals = false;
-    let progressHTML = '';
-    
-    if (calorieGoal) {
-        hasActiveGoals = true;
-        const remaining = calorieGoal.daily_limit - calories;
-        const percentage = (calories / calorieGoal.daily_limit) * 100;
-        const status = remaining >= 0 ? 'success' : remaining >= -10 ? 'warning' : 'danger';
-        const statusText = remaining >= 0 ? `${remaining.toFixed(0)} calories remaining` : `${Math.abs(remaining).toFixed(0)} calories over limit`;
-        
-        progressHTML += `
-            <div class="mb-2">
-                <div class="d-flex justify-content-between">
-                    <span><strong>Calories:</strong> ${calories} / ${calorieGoal.daily_limit}</span>
-                    <span class="text-${status}">${statusText}</span>
-                </div>
-                <div class="progress" style="height: 8px;">
-                    <div class="progress-bar bg-${status}" style="width: ${Math.min(percentage, 100)}%"></div>
-                </div>
-            </div>
-        `;
-    }
-    
-    if (proteinGoal) {
-        hasActiveGoals = true;
-        const remaining = proteinGoal.daily_limit - protein;
-        const percentage = (protein / proteinGoal.daily_limit) * 100;
-        const status = remaining >= 0 ? 'success' : remaining >= -10 ? 'warning' : 'danger';
-        const statusText = remaining >= 0 ? `${remaining.toFixed(1)}g remaining` : `${Math.abs(remaining).toFixed(1)}g over limit`;
-        
-        progressHTML += `
-            <div class="mb-2">
-                <div class="d-flex justify-content-between">
-                    <span><strong>Protein:</strong> ${protein}g / ${proteinGoal.daily_limit}g</span>
-                    <span class="text-${status}">${statusText}</span>
-                </div>
-                <div class="progress" style="height: 8px;">
-                    <div class="progress-bar bg-${status}" style="width: ${Math.min(percentage, 100)}%"></div>
-                </div>
-            </div>
-        `;
-    }
-    
-    if (hasActiveGoals) {
-        progressContent.innerHTML = progressHTML;
-        progressDisplay.style.display = 'block';
-    } else {
-        progressDisplay.style.display = 'none';
-    }
+    // This function can be enhanced later to show progress inline
+    // For now, the goals progress is shown in the daily overview section
 }
 
 // Filtering functionality
 let allRecords = []; // Store all records for filtering
 let filteredRecords = []; // Store filtered records
 
-// Initialize filter functionality
+// Initialize filter functionality - no longer used but kept for compatibility
 function initializeFilters() {
-    const applyFiltersBtn = document.getElementById('applyFilters');
-    const clearFiltersBtn = document.getElementById('clearFilters');
-    const exportFilteredBtn = document.getElementById('exportFilteredData');
-    
-    if (applyFiltersBtn) {
-        applyFiltersBtn.addEventListener('click', applyFilters);
-    }
-    
-    if (clearFiltersBtn) {
-        clearFiltersBtn.addEventListener('click', clearFilters);
-    }
-    
-    if (exportFilteredBtn) {
-        exportFilteredBtn.addEventListener('click', exportFilteredData);
-    }
-    
-    // Add real-time filtering on input change
-    const filterInputs = [
-        'filterMealType', 'filterDateFrom', 'filterDateTo',
-        'filterMinCalories', 'filterMaxCalories', 'filterMinProtein', 'filterSearchNotes'
-    ];
-    
-    filterInputs.forEach(inputId => {
-        const input = document.getElementById(inputId);
-        if (input) {
-            input.addEventListener('change', applyFilters);
-            input.addEventListener('input', applyFilters);
-        }
-    });
+    // Filters removed with history section
 }
 
 // Apply filters to the data
@@ -3197,10 +3039,8 @@ async function confirmAIAnalysis() {
     }
     
     try {
-        const autoLogDate = document.getElementById('autoLogDate').value;
         const autoMealType = document.getElementById('autoMealType').value;
         const autoCustomMealName = document.getElementById('autoCustomMealName').value;
-        const autoLogWeight = document.getElementById('autoLogWeight').value;
         
         // Get the current values from the AI results (in case user edited them)
         const aiProtein = parseFloat(document.getElementById('aiProtein').value) || 0;
@@ -3210,7 +3050,7 @@ async function confirmAIAnalysis() {
         const aiNotes = document.getElementById('aiNotes').value || '';
         
         const formData = {
-            log_date: autoLogDate,
+            log_date: document.getElementById('logDateHidden').value,
             log_protein: aiProtein,
             log_calories: aiCalories,
             log_carbs: aiCarbs,
@@ -3231,16 +3071,14 @@ async function confirmAIAnalysis() {
         document.getElementById('autoMealType').value = 'breakfast';
         document.getElementById('autoCustomMealGroup').style.display = 'none';
         
-        // Set default date to current date again
-        const now = new Date();
-        const dateString = now.toISOString().split('T')[0];
-        document.getElementById('autoLogDate').value = dateString;
-        
         // Hide AI results
         document.getElementById('ai-results').style.display = 'none';
         
         // Clear pending analysis
         pendingAIAnalysis = null;
+        
+        // Reload day data to show new meal
+        await loadDayData(currentDate);
         
         // Reload data
         await loadData();
@@ -3294,82 +3132,298 @@ async function updateWeightGoalsProgress(newWeight) {
     }
 }
 
-// Load weight history for the history section
-async function loadWeightHistory() {
+// Calendar interface functionality
+function initializeCalendarInterface() {
+    const calendarDate = document.getElementById('calendar-date');
+    const prevDayBtn = document.getElementById('prev-day');
+    const nextDayBtn = document.getElementById('next-day');
+    const todayBtn = document.getElementById('today-btn');
+    
+    // Set initial date to today
+    if (calendarDate) {
+        calendarDate.value = currentDate.toISOString().split('T')[0];
+        
+        // Add event listener for date changes
+        calendarDate.addEventListener('change', (e) => {
+            currentDate = new Date(e.target.value + 'T00:00:00');
+            loadDayData(currentDate);
+        });
+    }
+    
+    // Previous day navigation
+    if (prevDayBtn) {
+        prevDayBtn.addEventListener('click', () => {
+            currentDate.setDate(currentDate.getDate() - 1);
+            calendarDate.value = currentDate.toISOString().split('T')[0];
+            loadDayData(currentDate);
+        });
+    }
+    
+    // Next day navigation
+    if (nextDayBtn) {
+        nextDayBtn.addEventListener('click', () => {
+            currentDate.setDate(currentDate.getDate() + 1);
+            calendarDate.value = currentDate.toISOString().split('T')[0];
+            loadDayData(currentDate);
+        });
+    }
+    
+    // Today button
+    if (todayBtn) {
+        todayBtn.addEventListener('click', () => {
+            currentDate = new Date();
+            calendarDate.value = currentDate.toISOString().split('T')[0];
+            loadDayData(currentDate);
+        });
+    }
+    
+    // Load initial day data
+    loadDayData(currentDate);
+    
+    // Set up form dates to match selected date
+    updateFormDates();
+}
+
+// Load data for a specific day
+async function loadDayData(date) {
+    const dateString = date.toISOString().split('T')[0];
+    
     try {
-        const weightData = await apiCall('/weight-entries');
-        displayWeightHistory(weightData);
+        // Update selected date display
+        const selectedDateDisplay = document.getElementById('selected-date-display');
+        if (selectedDateDisplay) {
+            selectedDateDisplay.textContent = date.toLocaleDateString();
+        }
+        
+        // Load weight for the day
+        await loadDayWeight(dateString);
+        
+        // Load meals for the day
+        await loadDayMeals(dateString);
+        
+        // Load goals progress for the day
+        await loadDayGoalsProgress(dateString);
+        
+        // Update form dates
+        updateFormDates();
+        
     } catch (error) {
-        console.error('Error loading weight history:', error);
+        console.error('Error loading day data:', error);
     }
 }
 
-// Display weight history in table
-function displayWeightHistory(weightEntries) {
-    const tbody = document.getElementById('weight-history-table-body');
-    if (!tbody) return;
-    
-    if (weightEntries.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center text-muted py-4">
-                    <i class="fas fa-weight fa-2x mb-2"></i>
-                    <div>No weight entries found</div>
-                </td>
-            </tr>
-        `;
-        return;
+// Load weight data for a specific day
+async function loadDayWeight(dateString) {
+    try {
+        const weightEntries = await apiCall('/weight-entries');
+        const dayWeight = weightEntries.find(entry => entry.log_date === dateString);
+        
+        const weightDisplay = document.getElementById('current-weight-display');
+        const weightInfo = document.getElementById('weight-display').querySelector('small');
+        
+        if (dayWeight) {
+            weightDisplay.textContent = `${dayWeight.weight} kg`;
+            weightDisplay.className = 'h3 text-success mb-0';
+            weightInfo.textContent = dayWeight.notes || 'Weight logged';
+            weightInfo.className = 'text-muted';
+        } else {
+            weightDisplay.textContent = '--';
+            weightDisplay.className = 'h3 text-muted mb-0';
+            weightInfo.textContent = 'No weight logged';
+            weightInfo.className = 'text-muted';
+        }
+    } catch (error) {
+        console.error('Error loading day weight:', error);
     }
-    
-    tbody.innerHTML = weightEntries.map(entry => `
-        <tr>
-            <td>${new Date(entry.log_date).toLocaleDateString()}</td>
-            <td>${entry.weight} kg</td>
-            <td>${entry.notes || '-'}</td>
-            <td>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" onclick="editWeightEntry(${entry.id})" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-outline-danger" onclick="deleteWeightEntry(${entry.id})" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
+}
+
+// Load meals data for a specific day
+async function loadDayMeals(dateString) {
+    try {
+        const dayData = await apiCall(`/weight/day/${dateString}`);
+        
+        // Calculate daily totals
+        let totalCalories = 0;
+        let totalProtein = 0;
+        let totalCarbs = 0;
+        let totalFat = 0;
+        
+        dayData.forEach(entry => {
+            totalCalories += entry.log_calories || 0;
+            totalProtein += entry.log_protein || 0;
+            totalCarbs += entry.log_carbs || 0;
+            totalFat += entry.log_fat || 0;
+        });
+        
+        // Update totals display
+        document.getElementById('daily-total-calories').textContent = totalCalories.toFixed(0);
+        document.getElementById('daily-total-protein').textContent = `${totalProtein.toFixed(1)}g`;
+        document.getElementById('daily-total-carbs').textContent = `${totalCarbs.toFixed(1)}g`;
+        document.getElementById('daily-total-fat').textContent = `${totalFat.toFixed(1)}g`;
+        
+        // Update meals list
+        const mealsList = document.getElementById('daily-meals-list');
+        if (dayData.length === 0) {
+            mealsList.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-utensils fa-2x mb-2"></i>
+                    <div>No meals logged for this date</div>
                 </div>
-            </td>
-        </tr>
-    `).join('');
+            `;
+        } else {
+            const mealsHTML = dayData.map(entry => {
+                let mealDisplay = '';
+                if (entry.meal_type === 'custom' && entry.meal_name) {
+                    mealDisplay = entry.meal_name;
+                } else {
+                    const mealTypes = {
+                        'breakfast': 'Breakfast',
+                        'lunch': 'Lunch',
+                        'dinner': 'Dinner',
+                        'morning_snack': 'Morning Snack',
+                        'evening_snack': 'Evening Snack',
+                        'full_day': 'Full Day'
+                    };
+                    mealDisplay = mealTypes[entry.meal_type] || entry.meal_type;
+                }
+                
+                return `
+                    <div class="meal-entry p-3 mb-2 border rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">${mealDisplay}</h6>
+                                <div class="row g-2">
+                                    <div class="col-3">
+                                        <small class="text-muted">Calories</small>
+                                        <div class="fw-bold text-success">${entry.log_calories}</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <small class="text-muted">Protein</small>
+                                        <div class="fw-bold text-info">${entry.log_protein}g</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <small class="text-muted">Carbs</small>
+                                        <div class="fw-bold text-warning">${entry.log_carbs}g</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <small class="text-muted">Fat</small>
+                                        <div class="fw-bold text-danger">${entry.log_fat}g</div>
+                                    </div>
+                                </div>
+                                ${entry.log_misc_info ? `<small class="text-muted d-block mt-2">${entry.log_misc_info}</small>` : ''}
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="editEntry('${entry.id}')" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="deleteEntry('${entry.id}')" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            mealsList.innerHTML = mealsHTML;
+        }
+    } catch (error) {
+        console.error('Error loading day meals:', error);
+    }
 }
 
-// Function to toggle edit modal fields based on entry type
-function configureEditModal(editType) {
-    const nutritionFields = ['editProtein', 'editCalories', 'editCarbs', 'editFat', 'editMiscInfo', 'editMealType', 'editMealName'];
-    const weightFields = ['editWeight', 'editNotes'];
+// Load goals progress for a specific day
+async function loadDayGoalsProgress(dateString) {
+    try {
+        const goals = await apiCall('/goals');
+        const activeGoals = goals.filter(g => g.status === 'active' && (g.goal_type === 'calorie' || g.goal_type === 'protein'));
+        
+        if (activeGoals.length === 0) {
+            document.getElementById('goals-progress-card').style.display = 'none';
+            return;
+        }
+        
+        // Get day's nutrition data
+        const dayData = await apiCall(`/weight/day/${dateString}`);
+        let totalCalories = 0;
+        let totalProtein = 0;
+        
+        dayData.forEach(entry => {
+            totalCalories += entry.log_calories || 0;
+            totalProtein += entry.log_protein || 0;
+        });
+        
+        // Generate goals progress HTML
+        let progressHTML = '';
+        
+        activeGoals.forEach(goal => {
+            if (goal.goal_type === 'calorie') {
+                const progress = (totalCalories / goal.daily_limit) * 100;
+                const remaining = goal.daily_limit - totalCalories;
+                const status = remaining >= 0 ? 'success' : 'danger';
+                const statusText = remaining >= 0 ? `${remaining.toFixed(0)} calories remaining` : `${Math.abs(remaining).toFixed(0)} calories over limit`;
+                
+                progressHTML += `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">${goal.title}</h6>
+                            <span class="badge bg-${status}">${statusText}</span>
+                        </div>
+                        <div class="progress" style="height: 12px;">
+                            <div class="progress-bar bg-${status}" style="width: ${Math.min(progress, 100)}%" 
+                                 title="${totalCalories} / ${goal.daily_limit} calories"></div>
+                        </div>
+                        <small class="text-muted">${totalCalories} / ${goal.daily_limit} calories (${progress.toFixed(1)}%)</small>
+                    </div>
+                `;
+            } else if (goal.goal_type === 'protein') {
+                const progress = (totalProtein / goal.daily_limit) * 100;
+                const remaining = goal.daily_limit - totalProtein;
+                const status = remaining >= 0 ? 'success' : 'danger';
+                const statusText = remaining >= 0 ? `${remaining.toFixed(1)}g remaining` : `${Math.abs(remaining).toFixed(1)}g over limit`;
+                
+                progressHTML += `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">${goal.title}</h6>
+                            <span class="badge bg-${status}">${statusText}</span>
+                        </div>
+                        <div class="progress" style="height: 12px;">
+                            <div class="progress-bar bg-${status}" style="width: ${Math.min(progress, 100)}%" 
+                                 title="${totalProtein.toFixed(1)} / ${goal.daily_limit}g protein"></div>
+                        </div>
+                        <small class="text-muted">${totalProtein.toFixed(1)} / ${goal.daily_limit}g protein (${progress.toFixed(1)}%)</small>
+                    </div>
+                `;
+            }
+        });
+        
+        if (progressHTML) {
+            document.getElementById('daily-goals-progress').innerHTML = progressHTML;
+            document.getElementById('goals-progress-card').style.display = 'block';
+        } else {
+            document.getElementById('goals-progress-card').style.display = 'none';
+        }
+        
+    } catch (error) {
+        console.error('Error loading day goals progress:', error);
+        document.getElementById('goals-progress-card').style.display = 'none';
+    }
+}
+
+// Update form dates to match selected date
+function updateFormDates() {
+    const dateString = currentDate.toISOString().split('T')[0];
     
-    if (editType === 'weight') {
-        // Show weight fields, hide nutrition fields
-        nutritionFields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) field.closest('.mb-3').style.display = 'none';
-        });
-        
-        weightFields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) field.closest('.mb-3').style.display = 'block';
-        });
-        
-        document.getElementById('editModalLabel').textContent = 'Edit Weight Entry';
-    } else {
-        // Show nutrition fields, hide weight fields
-        nutritionFields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) field.closest('.mb-3').style.display = 'block';
-        });
-        
-        weightFields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) field.closest('.mb-3').style.display = 'none';
-        });
-        
-        document.getElementById('editModalLabel').textContent = 'Edit Nutrition Entry';
+    // Update weight form
+    const weightDateHidden = document.getElementById('weightDateHidden');
+    if (weightDateHidden) {
+        weightDateHidden.value = dateString;
+    }
+    
+    // Update nutrition form
+    const logDateHidden = document.getElementById('logDateHidden');
+    if (logDateHidden) {
+        logDateHidden.value = dateString;
     }
 }
