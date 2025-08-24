@@ -49,21 +49,32 @@ const db = new sqlite3.Database(dbPath);
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // Weight tracking table
+        // Weight tracking table (nutrition logs)
         db.run(`CREATE TABLE IF NOT EXISTS weight_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             log_date TEXT NOT NULL,
-            log_weight REAL,
             log_protein REAL DEFAULT 0,
             log_calories REAL DEFAULT 0,
             log_carbs REAL DEFAULT 0,
             log_fat REAL DEFAULT 0,
             log_misc_info TEXT,
-            meal_type TEXT DEFAULT 'full_day',
+            meal_type TEXT DEFAULT 'breakfast',
             meal_name TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
+
+        // Separate weight entries table
+        db.run(`CREATE TABLE IF NOT EXISTS weight_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            log_date TEXT NOT NULL,
+            weight REAL NOT NULL,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            UNIQUE(user_id, log_date)
         )`);
 
         // Workouts table
@@ -169,7 +180,6 @@ app.get('/api/weight/daily-summary', authenticateToken, (req, res) => {
         SUM(log_protein) as total_protein,
         SUM(log_carbs) as total_carbs,
         SUM(log_fat) as total_fat,
-        AVG(CASE WHEN log_weight IS NOT NULL THEN log_weight END) as avg_weight,
         COUNT(*) as meal_count
         FROM weight_logs 
         WHERE user_id = ? 
@@ -179,7 +189,28 @@ app.get('/api/weight/daily-summary', authenticateToken, (req, res) => {
         if (err) {
             return res.status(500).json({ error: 'Database error' });
         }
-        res.json(rows);
+        
+        // Get weight data separately
+        db.all(`SELECT log_date, weight FROM weight_entries WHERE user_id = ? ORDER BY log_date ASC`,
+            [req.user.id], (err, weightRows) => {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+            
+            // Create a map of dates to weights
+            const weightMap = new Map();
+            weightRows.forEach(row => {
+                weightMap.set(row.log_date, row.weight);
+            });
+            
+            // Add weight data to the nutrition summary
+            const combinedData = rows.map(row => ({
+                ...row,
+                avg_weight: weightMap.get(row.log_date) || null
+            }));
+            
+            res.json(combinedData);
+        });
     });
 });
 
@@ -195,12 +226,12 @@ app.get('/api/weight/day/:date', authenticateToken, (req, res) => {
 });
 
 app.post('/api/weight', authenticateToken, (req, res) => {
-    const { log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name } = req.body;
+    const { log_date, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name } = req.body;
     
     db.run(`INSERT INTO weight_logs 
-        (user_id, log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.user.id, log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type || 'full_day', meal_name],
+        (user_id, log_date, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.id, log_date, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type || 'breakfast', meal_name],
         function(err) {
             if (err) {
                 return res.status(500).json({ error: 'Database error' });
@@ -210,13 +241,13 @@ app.post('/api/weight', authenticateToken, (req, res) => {
 });
 
 app.put('/api/weight/:id', authenticateToken, (req, res) => {
-    const { log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name } = req.body;
+    const { log_date, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name } = req.body;
     
     db.run(`UPDATE weight_logs 
-        SET log_date = ?, log_weight = ?, log_protein = ?, log_calories = ?, 
+        SET log_date = ?, log_protein = ?, log_calories = ?, 
             log_carbs = ?, log_fat = ?, log_misc_info = ?, meal_type = ?, meal_name = ?
         WHERE id = ? AND user_id = ?`,
-        [log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type || 'full_day', meal_name, req.params.id, req.user.id],
+        [log_date, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type || 'breakfast', meal_name, req.params.id, req.user.id],
         function(err) {
             if (err) {
                 return res.status(500).json({ error: 'Database error' });
@@ -233,6 +264,77 @@ app.delete('/api/weight/:id', authenticateToken, (req, res) => {
         }
         res.json({ success: true });
     });
+});
+
+// Weight entries routes (separate from nutrition logs)
+app.get('/api/weight-entries', authenticateToken, (req, res) => {
+    db.all('SELECT * FROM weight_entries WHERE user_id = ? ORDER BY log_date DESC', 
+        [req.user.id], (err, rows) => {
+            if (err) {
+                console.error('Error fetching weight entries:', err);
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json(rows);
+        });
+});
+
+app.post('/api/weight-entries', authenticateToken, (req, res) => {
+    const { log_date, weight, notes } = req.body;
+    
+    db.run(`INSERT OR REPLACE INTO weight_entries 
+        (user_id, log_date, weight, notes)
+        VALUES (?, ?, ?, ?)`,
+        [req.user.id, log_date, weight, notes || ''],
+        function(err) {
+            if (err) {
+                console.error('Error saving weight entry:', err);
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ id: this.lastID, message: 'Weight entry saved successfully' });
+        });
+});
+
+app.put('/api/weight-entries/:id', authenticateToken, (req, res) => {
+    const { log_date, weight, notes } = req.body;
+    
+    db.run(`UPDATE weight_entries 
+        SET log_date = ?, weight = ?, notes = ?
+        WHERE id = ? AND user_id = ?`,
+        [log_date, weight, notes || '', req.params.id, req.user.id],
+        function(err) {
+            if (err) {
+                console.error('Error updating weight entry:', err);
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            
+            if (this.changes === 0) {
+                res.status(404).json({ error: 'Weight entry not found' });
+                return;
+            }
+            
+            res.json({ message: 'Weight entry updated successfully' });
+        });
+});
+
+app.delete('/api/weight-entries/:id', authenticateToken, (req, res) => {
+    db.run('DELETE FROM weight_entries WHERE id = ? AND user_id = ?', 
+        [req.params.id, req.user.id], function(err) {
+            if (err) {
+                console.error('Error deleting weight entry:', err);
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            
+            if (this.changes === 0) {
+                res.status(404).json({ error: 'Weight entry not found' });
+                return;
+            }
+            
+            res.json({ message: 'Weight entry deleted successfully' });
+        });
 });
 
 // Workout routes
@@ -753,6 +855,14 @@ app.get('/api/export', authenticateToken, (req, res) => {
         });
     });
 
+    const weightEntriesPromise = new Promise((resolve, reject) => {
+        db.all('SELECT * FROM weight_entries WHERE user_id = ? ORDER BY log_date ASC', 
+            [req.user.id], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+
     const workoutsPromise = new Promise((resolve, reject) => {
         db.all('SELECT * FROM workouts WHERE user_id = ? ORDER BY workout_date DESC', 
             [req.user.id], (err, rows) => {
@@ -761,10 +871,11 @@ app.get('/api/export', authenticateToken, (req, res) => {
         });
     });
 
-    Promise.all([weightPromise, workoutsPromise])
-        .then(([weightData, workoutData]) => {
+    Promise.all([weightPromise, weightEntriesPromise, workoutsPromise])
+        .then(([weightData, weightEntries, workoutData]) => {
             res.json({
                 weight_logs: weightData,
+                weight_entries: weightEntries,
                 workouts: workoutData,
                 exported_at: new Date().toISOString()
             });
@@ -776,10 +887,12 @@ app.get('/api/export', authenticateToken, (req, res) => {
 
 // Import data
 app.post('/api/import', authenticateToken, (req, res) => {
-    const { weight_logs, workouts } = req.body;
+    const { weight_logs, weight_entries, workouts } = req.body;
     let importedWeight = 0;
+    let importedWeightEntries = 0;
     let importedWorkouts = 0;
     let skippedWeight = 0;
+    let skippedWeightEntries = 0;
     let skippedWorkouts = 0;
 
     const importWeight = () => {
@@ -791,17 +904,18 @@ app.post('/api/import', authenticateToken, (req, res) => {
             let processed = 0;
             weight_logs.forEach(entry => {
                 // Check if entry already exists
-                db.get('SELECT id FROM weight_logs WHERE user_id = ? AND log_date = ?', 
-                    [req.user.id, entry.log_date], (err, existing) => {
+                db.get('SELECT id FROM weight_logs WHERE user_id = ? AND log_date = ? AND meal_type = ?', 
+                    [req.user.id, entry.log_date, entry.meal_type || 'breakfast'], (err, existing) => {
                     if (existing) {
                         // Update existing
                         db.run(`UPDATE weight_logs 
-                            SET log_weight = ?, log_protein = ?, log_calories = ?, 
-                                log_carbs = ?, log_fat = ?, log_misc_info = ?
-                            WHERE user_id = ? AND log_date = ?`,
-                            [entry.log_weight, entry.log_protein, entry.log_calories, 
+                            SET log_protein = ?, log_calories = ?, 
+                                log_carbs = ?, log_fat = ?, log_misc_info = ?, meal_type = ?, meal_name = ?
+                            WHERE user_id = ? AND log_date = ? AND meal_type = ?`,
+                            [entry.log_protein, entry.log_calories, 
                              entry.log_carbs, entry.log_fat, entry.log_misc_info, 
-                             req.user.id, entry.log_date], () => {
+                             entry.meal_type || 'breakfast', entry.meal_name,
+                             req.user.id, entry.log_date, entry.meal_type || 'breakfast'], () => {
                             skippedWeight++;
                             processed++;
                             if (processed === weight_logs.length) resolve();
@@ -809,15 +923,41 @@ app.post('/api/import', authenticateToken, (req, res) => {
                     } else {
                         // Insert new
                         db.run(`INSERT INTO weight_logs 
-                            (user_id, log_date, log_weight, log_protein, log_calories, log_carbs, log_fat, log_misc_info)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                            [req.user.id, entry.log_date, entry.log_weight, entry.log_protein, 
-                             entry.log_calories, entry.log_carbs, entry.log_fat, entry.log_misc_info], () => {
+                            (user_id, log_date, log_protein, log_calories, log_carbs, log_fat, log_misc_info, meal_type, meal_name)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            [req.user.id, entry.log_date, entry.log_protein, 
+                             entry.log_calories, entry.log_carbs, entry.log_fat, entry.log_misc_info,
+                             entry.meal_type || 'breakfast', entry.meal_name], () => {
                             importedWeight++;
                             processed++;
                             if (processed === weight_logs.length) resolve();
                         });
                     }
+                });
+            });
+        });
+    };
+
+    const importWeightEntries = () => {
+        return new Promise((resolve) => {
+            if (!weight_entries || weight_entries.length === 0) {
+                return resolve();
+            }
+
+            let processed = 0;
+            weight_entries.forEach(entry => {
+                // Use INSERT OR REPLACE for weight entries since there should be only one per day
+                db.run(`INSERT OR REPLACE INTO weight_entries 
+                    (user_id, log_date, weight, notes)
+                    VALUES (?, ?, ?, ?)`,
+                    [req.user.id, entry.log_date, entry.weight, entry.notes || ''], (err) => {
+                    if (err) {
+                        skippedWeightEntries++;
+                    } else {
+                        importedWeightEntries++;
+                    }
+                    processed++;
+                    if (processed === weight_entries.length) resolve();
                 });
             });
         });
@@ -856,16 +996,19 @@ app.post('/api/import', authenticateToken, (req, res) => {
     };
 
     importWeight()
+        .then(() => importWeightEntries())
         .then(() => importWorkouts())
         .then(() => {
             res.json({
                 success: true,
                 imported: {
                     weight_logs: importedWeight,
+                    weight_entries: importedWeightEntries,
                     workouts: importedWorkouts
                 },
                 skipped: {
                     weight_logs: skippedWeight,
+                    weight_entries: skippedWeightEntries,
                     workouts: skippedWorkouts
                 }
             });

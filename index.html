@@ -1165,7 +1165,48 @@
                         <h1 class="section-title">Log New Entry</h1>
                     </div>
 
+                    <!-- Weight Tracking Section -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-weight-hanging"></i>
+                                Weight Tracking
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <form id="weight-entry-form">
+                                        <div class="form-group">
+                                            <label for="weightDate" class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="weightDate" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="weightValue" class="form-label">Weight (kg)</label>
+                                            <input type="number" class="form-control" id="weightValue" step="0.1" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="weightNotes" class="form-label">Notes (Optional)</label>
+                                            <textarea class="form-control" id="weightNotes" rows="2" placeholder="How are you feeling today?"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fas fa-save"></i>
+                                            Log Weight
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nutrition Logging Section -->
                     <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-utensils"></i>
+                                Nutrition Logging
+                            </h3>
+                        </div>
                         <div class="card-body">
                             <!-- Entry Mode Toggle -->
                             <div class="d-flex gap-3 mb-4">
@@ -1202,10 +1243,6 @@
                                             <div class="form-group" id="customMealGroup" style="display: none;">
                                                 <label for="customMealName" class="form-label">Custom Meal Name</label>
                                                 <input type="text" class="form-control" id="customMealName" placeholder="e.g., Late Night Snack">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="logWeight" class="form-label">Weight (kg)</label>
-                                                <input type="number" class="form-control" id="logWeight" step="0.1" placeholder="Optional">
                                             </div>
                                         </div>
                                         <div>
@@ -1261,11 +1298,6 @@
                                     <div class="form-group" id="autoCustomMealGroup" style="display: none;">
                                         <label for="autoCustomMealName" class="form-label">Custom Meal Name</label>
                                         <input type="text" class="form-control" id="autoCustomMealName" placeholder="e.g., Late Night Snack">
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="autoLogWeight" class="form-label">Weight (kg)</label>
-                                        <input type="number" class="form-control" id="autoLogWeight" step="0.1" placeholder="Optional">
                                     </div>
                                     
                                     <div class="form-group">
@@ -1395,14 +1427,6 @@
                                     <label for="filterDateTo" class="form-label">To Date</label>
                                     <input type="date" class="form-control" id="filterDateTo">
                                 </div>
-                                <div class="col-md-3">
-                                    <label for="filterHasWeight" class="form-label">Weight Logged</label>
-                                    <select class="form-control" id="filterHasWeight">
-                                        <option value="">Any</option>
-                                        <option value="yes">Has Weight</option>
-                                        <option value="no">No Weight</option>
-                                    </select>
-                                </div>
                             </div>
                             <div class="row g-3 mt-2">
                                 <div class="col-md-3">
@@ -1452,7 +1476,6 @@
                                     <tr>
                                         <th>Date</th>
                                         <th>Meal</th>
-                                        <th>Weight (kg)</th>
                                         <th>Protein (g)</th>
                                         <th>Calories</th>
                                         <th>Carbs (g)</th>
@@ -1464,6 +1487,34 @@
                                 <tbody id="data-table-body">
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Weight History Section -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-weight me-2"></i>Weight History
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="data-table-wrapper">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Weight</th>
+                                                <th>Notes</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="weight-history-table-body">
+                                            <!-- Weight data will be loaded here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -1692,10 +1743,6 @@
                             <input type="text" class="form-control" id="editCustomMealName" placeholder="e.g., Late Night Snack">
                         </div>
                         <div class="mb-3">
-                            <label for="editWeight" class="form-label">Weight (kg)</label>
-                            <input type="number" class="form-control" id="editWeight" step="0.1">
-                        </div>
-                        <div class="mb-3">
                             <label for="editProtein" class="form-label">Protein (g)</label>
                             <input type="number" class="form-control" id="editProtein" step="0.1" required>
                         </div>
@@ -1714,6 +1761,17 @@
                         <div class="mb-3">
                             <label for="editMiscInfo" class="form-label">Additional Notes</label>
                             <textarea class="form-control" id="editMiscInfo" rows="3"></textarea>
+                        </div>
+
+                        <!-- Weight Entry Fields (shown when editing weight) -->
+                        <div class="mb-3" id="editWeightField" style="display: none;">
+                            <label for="editWeight" class="form-label">Weight (kg)</label>
+                            <input type="number" class="form-control" id="editWeight" step="0.1" min="0">
+                        </div>
+                        
+                        <div class="mb-3" id="editNotesField" style="display: none;">
+                            <label for="editNotes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="editNotes" rows="2"></textarea>
                         </div>
                     </form>
                 </div>

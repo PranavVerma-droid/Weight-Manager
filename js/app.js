@@ -20,6 +20,7 @@ let currentSection = 'nutrition';
 
 // DOM elements
 const weightForm = document.getElementById('weight-form');
+const weightEntryForm = document.getElementById('weight-entry-form');
 const dataTableBody = document.getElementById('data-table-body');
 const exportDataBtn = document.getElementById('export-data-nav');
 const importDataBtn = document.getElementById('import-data-nav');
@@ -131,7 +132,8 @@ function loadSectionData(sectionName) {
             updateGoalProgressDisplay();
             break;
         case 'history':
-            loadData();
+            loadData(); // This loads nutrition data
+            loadWeightHistory(); // Load weight data for history section
             break;
     }
 }
@@ -312,8 +314,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const now = new Date();
     const dateString = now.toISOString().split('T')[0];
     const logDateElement = document.getElementById('logDate');
+    const weightDateElement = document.getElementById('weightDate');
     if (logDateElement) {
         logDateElement.value = dateString;
+    }
+    if (weightDateElement) {
+        weightDateElement.value = dateString;
     }
     
     // Set default values for nutrition inputs
@@ -341,6 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
     await loadWorkoutData();
     await loadGoalsData();
+    await loadWeightEntries();
     updateStats();
 });
 
@@ -430,10 +437,20 @@ if (importDataBtn && importFileInput) {
                     log_fat: item.logFat || item.log_fat || 0,
                     log_misc_info: item.logMiscInfo || item.log_misc_info || ""
                 }));
-            } else if (data.weight_logs || data.workouts) {
+            } else if (data.weight_logs || data.weight_entries || data.workouts) {
                 // New format
                 weightLogs = data.weight_logs || [];
+                const weightEntries = data.weight_entries || [];
                 workouts = data.workouts || [];
+                
+                // If we have weight entries, import them separately
+                if (weightEntries.length > 0) {
+                    const weightEntriesResult = await apiCall('/import', {
+                        method: 'POST',
+                        body: JSON.stringify({ weight_entries: weightEntries })
+                    });
+                    console.log('Weight entries import result:', weightEntriesResult);
+                }
             } else {
                 alert('Invalid file format');
                 return;
@@ -510,7 +527,6 @@ weightForm.addEventListener('submit', async (e) => {
         
         const formData = {
             log_date: document.getElementById('logDate').value,
-            log_weight: document.getElementById('logWeight').value ? parseFloat(document.getElementById('logWeight').value) : null,
             log_protein: parseFloat(document.getElementById('logProtein').value) || 0,
             log_calories: parseFloat(document.getElementById('logCalories').value) || 0,
             log_carbs: parseFloat(document.getElementById('logCarbs').value) || 0,
@@ -524,11 +540,6 @@ weightForm.addEventListener('submit', async (e) => {
             method: 'POST',
             body: JSON.stringify(formData)
         });
-        
-        // Update weight goals if weight was logged
-        if (formData.log_weight) {
-            await updateWeightGoals(formData.log_weight);
-        }
         
         // Reset form
         weightForm.reset();
@@ -559,6 +570,45 @@ weightForm.addEventListener('submit', async (e) => {
     }
 });
 
+// Weight entry form submission handler
+if (weightEntryForm) {
+    weightEntryForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        try {
+            const formData = {
+                log_date: document.getElementById('weightDate').value,
+                weight: parseFloat(document.getElementById('weightValue').value),
+                notes: document.getElementById('weightNotes').value || ""
+            };
+
+            await apiCall('/weight-entries', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+            
+            // Update weight goals if weight was logged
+            await updateWeightGoalsProgress(formData.weight);
+            
+            // Reset form
+            weightEntryForm.reset();
+            
+            // Set date to current date
+            const now = new Date();
+            const dateString = now.toISOString().split('T')[0];
+            document.getElementById('weightDate').value = dateString;
+
+            await loadWeightEntries();
+            await loadData(); // Reload to update charts and display
+            updateStats();
+            alert('Weight logged successfully!');
+        } catch (error) {
+            console.error('Error saving weight entry:', error);
+            alert('Error saving weight entry: ' + error.message);
+        }
+    });
+}
+
 // Load data from API
 async function loadData() {
     try {
@@ -569,15 +619,130 @@ async function loadData() {
         filteredRecords = [...records]; // Initialize filtered records with all records
         
         displayTableData(filteredRecords);
-        updateFilterResultsCount();
         
-        // Use daily summary for charts to improve performance
-        const dailySummary = await apiCall('/weight/daily-summary');
-        renderWeightChart(dailySummary);
-        renderNutritionChart(dailySummary);
+        // Load daily summary for charts
+        const summaryData = await apiCall('/weight/daily-summary');
+        renderWeightChart();
+        renderNutritionChart(summaryData);
+        
+        updateFilterResultsCount();
     } catch (error) {
         console.error('Error loading data:', error);
-        alert('Error loading data: ' + error.message);
+    }
+}
+
+// Load weight entries from API
+async function loadWeightEntries() {
+    try {
+        const data = await apiCall('/weight-entries');
+        displayRecentWeightEntries(data.slice(0, 5)); // Show last 5 entries
+    } catch (error) {
+        console.error('Error loading weight entries:', error);
+    }
+}
+
+// Display recent weight entries
+function displayRecentWeightEntries(entries) {
+    const container = document.getElementById('recent-weight-entries');
+    if (!container) return;
+    
+    if (entries.length === 0) {
+        container.innerHTML = '<p class="text-muted">No recent entries</p>';
+        return;
+    }
+    
+    const entriesHtml = entries.map(entry => {
+        const date = new Date(entry.log_date).toLocaleDateString();
+        return `
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                <div>
+                    <strong>${entry.weight} kg</strong>
+                    <br><small class="text-muted">${date}</small>
+                </div>
+                <div class="text-end">
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteWeightEntry(${entry.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = entriesHtml;
+}
+
+// Delete weight entry
+async function deleteWeightEntry(id) {
+    if (confirm('Are you sure you want to delete this weight entry?')) {
+        try {
+            await apiCall(`/weight-entries/${id}`, { method: 'DELETE' });
+            await loadWeightEntries();
+            await loadData(); // Reload to update charts
+            updateStats();
+            alert('Weight entry deleted successfully!');
+        } catch (error) {
+            console.error('Error deleting weight entry:', error);
+            alert('Error deleting weight entry: ' + error.message);
+        }
+    }
+}
+
+// Edit weight entry from history
+async function editWeightEntry(id) {
+    try {
+        const weightData = await apiCall('/weight-entries');
+        const entry = weightData.find(w => w.id === id);
+        
+        if (!entry) {
+            alert('Weight entry not found');
+            return;
+        }
+        
+        // Configure modal for weight editing
+        configureEditModal('weight');
+        
+        // Populate edit modal with weight data
+        document.getElementById('editDate').value = entry.log_date;
+        document.getElementById('editWeight').value = entry.weight;
+        document.getElementById('editNotes').value = entry.notes || '';
+        
+        // Store the entry ID for saving
+        document.getElementById('editModal').dataset.weightEntryId = id;
+        document.getElementById('editModal').dataset.editType = 'weight';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+        modal.show();
+    } catch (error) {
+        console.error('Error loading weight entry for edit:', error);
+        alert('Error loading weight entry');
+    }
+}
+
+// Delete weight entry from history
+async function deleteWeightEntry(id) {
+    if (!confirm('Are you sure you want to delete this weight entry?')) {
+        return;
+    }
+    
+    try {
+        await apiCall(`/weight-entries/${id}`, {
+            method: 'DELETE'
+        });
+        
+        // Reload weight history
+        loadWeightHistory();
+        
+        // Update stats
+        updateStats();
+        
+        // Reload weight chart
+        renderWeightChart();
+        
+        alert('Weight entry deleted successfully');
+    } catch (error) {
+        console.error('Error deleting weight entry:', error);
+        alert('Error deleting weight entry');
     }
 }
 
@@ -622,7 +787,6 @@ function displayTableData(items) {
         row.innerHTML = `
             <td>${formattedDate}</td>
             <td><span class="badge bg-secondary">${mealDisplay}</span></td>
-            <td>${item.log_weight || '-'}</td>
             <td>${item.log_protein}</td>
             <td>${item.log_calories}</td>
             <td>${item.log_carbs}</td>
@@ -676,7 +840,6 @@ async function editEntry(id) {
             customMealGroup.style.display = 'none';
         }
         
-        document.getElementById('editWeight').value = record.log_weight;
         document.getElementById('editProtein').value = record.log_protein;
         document.getElementById('editCalories').value = record.log_calories;
         document.getElementById('editCarbs').value = record.log_carbs;
@@ -701,7 +864,6 @@ document.getElementById('saveEditBtn').addEventListener('click', async () => {
         
         const formData = {
             log_date: document.getElementById('editDate').value,
-            log_weight: document.getElementById('editWeight').value ? parseFloat(document.getElementById('editWeight').value) : null,
             log_protein: parseFloat(document.getElementById('editProtein').value) || 0,
             log_calories: parseFloat(document.getElementById('editCalories').value) || 0,
             log_carbs: parseFloat(document.getElementById('editCarbs').value) || 0,
@@ -747,110 +909,132 @@ async function deleteEntry(id) {
 }
 
 // Render weight chart
-function renderWeightChart(items) {
+async function renderWeightChart() {
     const ctx = document.getElementById('weightChart').getContext('2d');
     
-    // Filter items that have weight data
-    const weightItems = items.filter(item => item.avg_weight && item.avg_weight > 0);
-    
-    if (weightItems.length === 0) {
+    try {
+        // Fetch weight entries using the apiCall helper
+        const weightEntries = await apiCall('/weight-entries');
+        
+        if (weightEntries.length === 0) {
+            // Destroy existing chart if it exists
+            if (weightChart) {
+                weightChart.destroy();
+            }
+            
+            // Show message when no weight data
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#666';
+            ctx.fillText('No weight data to display', ctx.canvas.width / 2, ctx.canvas.height / 2);
+            return;
+        }
+        
+        // Sort by date
+        weightEntries.sort((a, b) => new Date(a.log_date) - new Date(b.log_date));
+        
+        // Format data for chart
+        const dates = weightEntries.map(entry => {
+            const date = new Date(entry.log_date);
+            return date.toLocaleDateString();
+        });
+        
+        const weights = weightEntries.map(entry => entry.weight);
+        
+        // Calculate trend line (simple linear regression)
+        let trendLine = [];
+        if (weights.length >= 2) {
+            const n = weights.length;
+            const sumX = weights.reduce((sum, _, i) => sum + i, 0);
+            const sumY = weights.reduce((sum, weight) => sum + weight, 0);
+            const sumXY = weights.reduce((sum, weight, i) => sum + (i * weight), 0);
+            const sumXX = weights.reduce((sum, _, i) => sum + (i * i), 0);
+            
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            
+            trendLine = weights.map((_, i) => slope * i + intercept);
+        }
+        
         // Destroy existing chart if it exists
         if (weightChart) {
             weightChart.destroy();
         }
         
-        // Show message when no weight data
-        ctx.font = '16px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#666';
-        ctx.fillText('No weight data to display', ctx.canvas.width / 2, ctx.canvas.height / 2);
-        return;
-    }
-    
-    // Format data for chart
-    const dates = weightItems.map(item => {
-        const date = new Date(item.log_date);
-        return date.toLocaleDateString();
-    });
-    
-    const weights = weightItems.map(item => item.avg_weight);
-    
-    // Calculate trend line (simple linear regression)
-    let trendLine = [];
-    if (weights.length >= 2) {
-        const n = weights.length;
-        const sumX = weights.reduce((sum, _, i) => sum + i, 0);
-        const sumY = weights.reduce((sum, weight) => sum + weight, 0);
-        const sumXY = weights.reduce((sum, weight, i) => sum + (i * weight), 0);
-        const sumXX = weights.reduce((sum, _, i) => sum + (i * i), 0);
+        // Create datasets
+        const datasets = [{
+            label: 'Weight (kg)',
+            data: weights,
+            backgroundColor: 'rgba(54, 162, 235, 0.3)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            showLine: false // Don't connect the dots
+        }];
         
-        const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-        const intercept = (sumY - slope * sumX) / n;
+        // Add trend line if we have enough data
+        if (trendLine.length >= 2) {
+            datasets.push({
+                label: 'Trend',
+                data: trendLine,
+                backgroundColor: 'rgba(255, 99, 132, 0)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                borderDash: [5, 5]
+            });
+        }
         
-        trendLine = weights.map((_, i) => slope * i + intercept);
-    }
-    
-    // Destroy existing chart if it exists
-    if (weightChart) {
-        weightChart.destroy();
-    }
-    
-    // Create datasets
-    const datasets = [{
-        label: 'Weight (kg)',
-        data: weights,
-        backgroundColor: 'rgba(54, 162, 235, 0.3)',
-        borderColor: 'rgba(54, 162, 235, 1)',
-        borderWidth: 1,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        showLine: false // Don't connect the dots
-    }];
-    
-    // Add trend line if we have enough data
-    if (trendLine.length >= 2) {
-        datasets.push({
-            label: 'Trend',
-            data: trendLine,
-            backgroundColor: 'rgba(255, 99, 132, 0)',
-            borderColor: 'rgba(255, 99, 132, 1)',
-            borderWidth: 2,
-            pointRadius: 0,
-            fill: false,
-            borderDash: [5, 5]
-        });
-    }
-    
-    // Create new chart
-    weightChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: dates,
-            datasets: datasets
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: false
-                }
+        // Create new chart
+        weightChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: datasets
             },
-            elements: {
-                line: {
-                    tension: 0
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0
+                    }
                 }
             }
+        });
+        
+    } catch (error) {
+        console.error('Error loading weight chart:', error);
+        
+        // Destroy existing chart if it exists
+        if (weightChart) {
+            weightChart.destroy();
         }
-    });
+        
+        // Show error message
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#dc3545';
+        ctx.fillText('Error loading weight data', ctx.canvas.width / 2, ctx.canvas.height / 2);
+    }
 }
 
 // Render nutrition chart
 function renderNutritionChart(items) {
     const ctx = document.getElementById('nutritionChart').getContext('2d');
     
+    // Sort items by date first to ensure correct order
+    const sortedItems = [...items].sort((a, b) => new Date(a.log_date) - new Date(b.log_date));
+    
     // Format data for chart - get last 7 entries
-    const recentItems = items.slice(-7);
+    const recentItems = sortedItems.slice(-7);
     
     const dates = recentItems.map(item => {
         const date = new Date(item.log_date);
@@ -1967,30 +2151,33 @@ async function renderGoalsChart(goals) {
 async function updateStats() {
     try {
         const records = await apiCall('/weight');
+        const weightEntries = await apiCall('/weight-entries');
         
         if (records.length === 0) {
             return;
         }
 
-        // Get current weight
-        const latestRecord = records[records.length - 1];
+        // Get current weight from weight entries
         const currentWeightElement = document.getElementById('current-weight');
         if (currentWeightElement) {
-            currentWeightElement.textContent = latestRecord.log_weight ? `${latestRecord.log_weight} kg` : '--';
+            if (weightEntries.length > 0) {
+                const latestWeight = weightEntries[weightEntries.length - 1];
+                currentWeightElement.textContent = `${latestWeight.weight} kg`;
+            } else {
+                currentWeightElement.textContent = '--';
+            }
         }
 
         // Calculate weight change
         const weightChangeElement = document.getElementById('weight-change');
-        if (weightChangeElement && records.length >= 2) {
-            const previousWeight = records[records.length - 2].log_weight;
-            const currentWeight = latestRecord.log_weight;
+        if (weightChangeElement && weightEntries.length >= 2) {
+            const previousWeight = weightEntries[weightEntries.length - 2].weight;
+            const currentWeight = weightEntries[weightEntries.length - 1].weight;
             
-            if (previousWeight && currentWeight) {
-                const change = currentWeight - previousWeight;
-                const changeText = change >= 0 ? `+${change.toFixed(1)} kg` : `${change.toFixed(1)} kg`;
-                weightChangeElement.textContent = changeText;
-                weightChangeElement.className = change >= 0 ? 'stat-change positive' : 'stat-change negative';
-            }
+            const change = currentWeight - previousWeight;
+            const changeText = change >= 0 ? `+${change.toFixed(1)} kg` : `${change.toFixed(1)} kg`;
+            weightChangeElement.textContent = changeText;
+            weightChangeElement.className = change >= 0 ? 'stat-change positive' : 'stat-change negative';
         }
 
         // Calculate average calories (last 7 days)
@@ -2034,7 +2221,7 @@ function updateGoalFormFields() {
     // Hide all groups first and remove required attributes
     currentValueGroup.style.display = 'none';
     targetValueGroup.style.display = 'none';
-    targetDateGroup.style.display = 'none';
+       targetDateGroup.style.display = 'none';
     dailyLimitGroup.style.display = 'none';
     
     if (currentValueInput) currentValueInput.removeAttribute('required');
@@ -2084,12 +2271,12 @@ function updateGoalFormFields() {
 
 async function prefillCurrentValues() {
     try {
-        const records = await apiCall('/weight');
-        if (records.length > 0) {
-            const latestRecord = records[records.length - 1];
+        const weightEntries = await apiCall('/weight-entries');
+        if (weightEntries.length > 0) {
+            const latestWeight = weightEntries[weightEntries.length - 1];
             const currentValueInput = document.getElementById('currentValue');
-            if (currentValueInput && latestRecord.log_weight) {
-                currentValueInput.value = latestRecord.log_weight;
+            if (currentValueInput) {
+                currentValueInput.value = latestWeight.weight;
             }
         }
     } catch (error) {
@@ -2278,12 +2465,22 @@ async function viewDay(date) {
         if (calorieGoal) {
             const calorieProgress = (totalCalories / calorieGoal.daily_limit) * 100;
             const calorieStatus = calorieProgress >= 100 ? 'success' : calorieProgress >= 80 ? 'warning' : 'danger';
+            const statusText = calorieProgress >= 100 ? 'Goal met!' : `${(100 - calorieProgress).toFixed(1)}% to goal`;
             goalProgressHTML += `
-                <div class="alert alert-${calorieStatus} mb-2">
-                    <strong>Calorie Goal:</strong> ${totalCalories.toFixed(1)} / ${calorieGoal.daily_limit} 
-                    (${calorieProgress.toFixed(1)}%)
-                    <div class="progress mt-2" style="height: 10px;">
-                        <div class="progress-bar bg-${calorieStatus}" style="width: ${Math.min(calorieProgress, 100)}%"></div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Calorie Goal</strong>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-${calorieStatus}" role="progressbar" style="width: ${Math.min(calorieProgress, 100)}%" aria-valuenow="${calorieProgress}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="text-${calorieStatus} fw-bold">${totalCalories.toFixed(0)} / ${calorieGoal.daily_limit}</span>
+                        </div>
+                    </div>
+                    <div class="text-muted" style="font-size: 0.875rem;">
+                        ${statusText}
                     </div>
                 </div>
             `;
@@ -2292,12 +2489,22 @@ async function viewDay(date) {
         if (proteinGoal) {
             const proteinProgress = (totalProtein / proteinGoal.daily_limit) * 100;
             const proteinStatus = proteinProgress >= 100 ? 'success' : proteinProgress >= 80 ? 'warning' : 'danger';
+            const statusText = proteinProgress >= 100 ? 'Goal met!' : `${(100 - proteinProgress).toFixed(1)}% to goal`;
             goalProgressHTML += `
-                <div class="alert alert-${proteinStatus} mb-2">
-                    <strong>Protein Goal:</strong> ${totalProtein.toFixed(1)}g / ${proteinGoal.daily_limit}g 
-                    (${proteinProgress.toFixed(1)}%)
-                    <div class="progress mt-2" style="height: 10px;">
-                        <div class="progress-bar bg-${proteinStatus}" style="width: ${Math.min(proteinProgress, 100)}%"></div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Protein Goal</strong>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-${proteinStatus}" role="progressbar" style="width: ${Math.min(proteinProgress, 100)}%" aria-valuenow="${proteinProgress}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="text-${proteinStatus} fw-bold">${totalProtein.toFixed(1)}g / ${proteinGoal.daily_limit}g</span>
+                        </div>
+                    </div>
+                    <div class="text-muted" style="font-size: 0.875rem;">
+                        ${statusText}
                     </div>
                 </div>
             `;
@@ -2452,12 +2659,12 @@ async function getCurrentValueForGoal(goal) {
             return latestProgress.recorded_value || goal.current_value || 0;
         }
         
-        // Fallback: for weight goals, get latest weight from nutrition logs
+        // Fallback: for weight goals, get latest weight from weight entries
         if (goal.goal_type === 'weight_loss' || goal.goal_type === 'weight_gain' || goal.goal_type === 'maintenance') {
-            const records = await apiCall('/weight');
-            if (records.length > 0) {
-                const latestRecord = records[records.length - 1];
-                return latestRecord.log_weight || goal.current_value || 0;
+            const weightEntries = await apiCall('/weight-entries');
+            if (weightEntries.length > 0) {
+                const latestWeight = weightEntries[weightEntries.length - 1];
+                return latestWeight.weight || goal.current_value || 0;
             }
         }
         
@@ -2559,7 +2766,7 @@ function initializeFilters() {
     
     // Add real-time filtering on input change
     const filterInputs = [
-        'filterMealType', 'filterDateFrom', 'filterDateTo', 'filterHasWeight',
+        'filterMealType', 'filterDateFrom', 'filterDateTo',
         'filterMinCalories', 'filterMaxCalories', 'filterMinProtein', 'filterSearchNotes'
     ];
     
@@ -2578,7 +2785,6 @@ function applyFilters() {
         mealType: document.getElementById('filterMealType')?.value || '',
         dateFrom: document.getElementById('filterDateFrom')?.value || '',
         dateTo: document.getElementById('filterDateTo')?.value || '',
-        hasWeight: document.getElementById('filterHasWeight')?.value || '',
         minCalories: parseFloat(document.getElementById('filterMinCalories')?.value) || 0,
         maxCalories: parseFloat(document.getElementById('filterMaxCalories')?.value) || 99999,
         minProtein: parseFloat(document.getElementById('filterMinProtein')?.value) || 0,
@@ -2599,13 +2805,7 @@ function applyFilters() {
             return false;
         }
         
-        // Weight filter
-        if (filters.hasWeight === 'yes' && (!record.log_weight || record.log_weight <= 0)) {
-            return false;
-        }
-        if (filters.hasWeight === 'no' && record.log_weight && record.log_weight > 0) {
-            return false;
-        }
+        // Note: Weight filter removed since weight is now tracked separately
         
         // Calorie range filter
         const calories = record.log_calories || 0;
@@ -2639,7 +2839,7 @@ function applyFilters() {
 // Clear all filters
 function clearFilters() {
     const filterInputs = [
-        'filterMealType', 'filterDateFrom', 'filterDateTo', 'filterHasWeight',
+        'filterMealType', 'filterDateFrom', 'filterDateTo',
         'filterMinCalories', 'filterMaxCalories', 'filterMinProtein', 'filterSearchNotes'
     ];
     
@@ -2737,9 +2937,6 @@ function getActiveFilters() {
     
     const dateTo = document.getElementById('filterDateTo')?.value;
     if (dateTo) filters.date_to = dateTo;
-    
-    const hasWeight = document.getElementById('filterHasWeight')?.value;
-    if (hasWeight) filters.has_weight = hasWeight;
     
     const minCalories = document.getElementById('filterMinCalories')?.value;
     if (minCalories) filters.min_calories = parseFloat(minCalories);
@@ -3014,7 +3211,6 @@ async function confirmAIAnalysis() {
         
         const formData = {
             log_date: autoLogDate,
-            log_weight: autoLogWeight ? parseFloat(autoLogWeight) : null,
             log_protein: aiProtein,
             log_calories: aiCalories,
             log_carbs: aiCarbs,
@@ -3029,14 +3225,8 @@ async function confirmAIAnalysis() {
             body: JSON.stringify(formData)
         });
         
-        // Update weight goals if weight was logged
-        if (formData.log_weight) {
-            await updateWeightGoalsProgress(formData.log_weight);
-        }
-        
         // Clear form and reset
         document.getElementById('foodDescription').value = '';
-        document.getElementById('autoLogWeight').value = '';
         document.getElementById('autoCustomMealName').value = '';
         document.getElementById('autoMealType').value = 'breakfast';
         document.getElementById('autoCustomMealGroup').style.display = 'none';
@@ -3101,5 +3291,85 @@ async function updateWeightGoalsProgress(newWeight) {
         }
     } catch (error) {
         console.error('Error updating weight goals:', error);
+    }
+}
+
+// Load weight history for the history section
+async function loadWeightHistory() {
+    try {
+        const weightData = await apiCall('/weight-entries');
+        displayWeightHistory(weightData);
+    } catch (error) {
+        console.error('Error loading weight history:', error);
+    }
+}
+
+// Display weight history in table
+function displayWeightHistory(weightEntries) {
+    const tbody = document.getElementById('weight-history-table-body');
+    if (!tbody) return;
+    
+    if (weightEntries.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center text-muted py-4">
+                    <i class="fas fa-weight fa-2x mb-2"></i>
+                    <div>No weight entries found</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = weightEntries.map(entry => `
+        <tr>
+            <td>${new Date(entry.log_date).toLocaleDateString()}</td>
+            <td>${entry.weight} kg</td>
+            <td>${entry.notes || '-'}</td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="editWeightEntry(${entry.id})" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="deleteWeightEntry(${entry.id})" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Function to toggle edit modal fields based on entry type
+function configureEditModal(editType) {
+    const nutritionFields = ['editProtein', 'editCalories', 'editCarbs', 'editFat', 'editMiscInfo', 'editMealType', 'editMealName'];
+    const weightFields = ['editWeight', 'editNotes'];
+    
+    if (editType === 'weight') {
+        // Show weight fields, hide nutrition fields
+        nutritionFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) field.closest('.mb-3').style.display = 'none';
+        });
+        
+        weightFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) field.closest('.mb-3').style.display = 'block';
+        });
+        
+        document.getElementById('editModalLabel').textContent = 'Edit Weight Entry';
+    } else {
+        // Show nutrition fields, hide weight fields
+        nutritionFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) field.closest('.mb-3').style.display = 'block';
+        });
+        
+        weightFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) field.closest('.mb-3').style.display = 'none';
+        });
+        
+        document.getElementById('editModalLabel').textContent = 'Edit Nutrition Entry';
     }
 }
